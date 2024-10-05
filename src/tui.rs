@@ -20,8 +20,7 @@ enum Mode {
 
 #[derive(Default)]
 struct App {
-    cursor_x: u16,
-    cursor_y: u16,
+    cursor: Point,
     canvas: Canvas,
     exit: bool,
     mode: Mode,
@@ -39,7 +38,7 @@ impl App {
     fn draw(&self, frame: &mut Frame) {
         frame.render_widget(self, frame.area());
         // +1 to accomodate border size
-        frame.set_cursor_position((self.cursor_x + 1, self.cursor_y + 1));
+        frame.set_cursor_position((self.cursor.x + 1, self.cursor.y + 1));
     }
 
     fn handle_events(&mut self) -> Result<()> {
@@ -55,20 +54,18 @@ impl App {
     }
 
     fn warp_cursor(&mut self, p: &Point) {
-        self.cursor_x = p.x;
-        self.cursor_y = p.y;
+        self.cursor = *p;
         log::debug!("Moved cursor to {p:?}");
     }
 
     fn move_cursor(&mut self, x: i16, y: i16) {
-        self.cursor_x = self.cursor_x.saturating_add_signed(x);
-        self.cursor_y = self.cursor_y.saturating_add_signed(y);
-        log::debug!("Moved cursor to ({}, {})", self.cursor_x, self.cursor_y);
+        self.cursor.x = self.cursor.x.saturating_add_signed(x);
+        self.cursor.y = self.cursor.y.saturating_add_signed(y);
+        log::debug!("Moved cursor to ({:?})", self.cursor);
         match &mut self.mode {
             Mode::Normal => {}
             Mode::Rect(r) => {
-                r.bottom_right.x = self.cursor_x;
-                r.bottom_right.y = self.cursor_y;
+                r.bottom_right = self.cursor;
                 log::debug!("Updated rect to {r:?}");
             }
             Mode::Line(l) => {
@@ -76,8 +73,7 @@ impl App {
                     log::warn!("Zero-point line");
                     return;
                 };
-                last.x = self.cursor_x;
-                last.y = self.cursor_y;
+                *last = self.cursor;
                 log::debug!("Updated line to {l:?}");
             }
             Mode::Text(_) => {}
@@ -116,24 +112,32 @@ impl App {
             KeyCode::Char('d') => self.move_cursor(1, 0),
 
             KeyCode::Char('r') => {
-                self.mode = Mode::Rect(Rect::new(self.cursor_x, self.cursor_y, 0, 0));
+                self.mode = Mode::Rect(Rect {
+                    top_left: self.cursor,
+                    bottom_right: self.cursor,
+                });
                 self.move_cursor(1, 1);
                 log::debug!("Set mode: {:?}", self.mode);
             }
             KeyCode::Char('l') => {
-                self.mode = Mode::Line(Line(vec![
-                    Point {
-                        x: self.cursor_x,
-                        y: self.cursor_y,
-                    };
-                    2
-                ]));
+                self.mode = Mode::Line(Line(vec![self.cursor; 2]));
                 log::debug!("Set mode: {:?}", self.mode);
             }
             KeyCode::Char('i') => {
-                self.mode = Mode::Text(Text::new(self.cursor_x, self.cursor_y, ""));
+                self.mode = Mode::Text(Text {
+                    start: self.cursor,
+                    text: "".into(),
+                });
                 log::debug!("Set mode: {:?}", self.mode);
             }
+
+            KeyCode::Char(' ') => match &mut self.mode {
+                Mode::Line(l) => {
+                    log::debug!("Adding point to line: {l:?}");
+                    l.0.push(self.cursor);
+                }
+                _ => {}
+            },
 
             KeyCode::Enter => match &self.mode {
                 Mode::Normal => {}
@@ -323,10 +327,12 @@ mod tests {
         input(&mut app, &['l', 'd', 'd', 's', 's', 's']);
         app.handle_key_event(KeyCode::Esc.into());
 
-        // Draw a unconfirmed line
+        // Draw a unconfirmed line with multiple points
         input(
             &mut app,
-            &['s', 'd', 'd', 'd', 'd', 'd', 'l', 'w', 'w', 'a', 'a'],
+            &[
+                's', 'd', 'd', 'd', 'd', 'd', 'l', 'w', 'w', 'a', 'a', ' ', 'd', 'd', ' ', 'w', 'w',
+            ],
         );
 
         app.render(buf.area, &mut buf);
