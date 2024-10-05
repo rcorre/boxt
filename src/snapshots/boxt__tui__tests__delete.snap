@@ -1,0 +1,12 @@
+---
+source: src/tui.rs
+expression: buf_string(&buf)
+---
+┏━━━━━━━━━━━━━Boxt━━━━━━━━━━━━━┓
+┃ e ete me                     ┃
+┃                              ┃
+┃                              ┃
+┃                              ┃
+┃                              ┃
+┃                              ┃
+┗ Move <WASD> Rect <R> Quit <Q>┛

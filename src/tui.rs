@@ -218,8 +218,11 @@ impl App {
                     }
                 }
             }
-
-            _ => {}
+            Action::TextAddLine => todo!(),
+            Action::Delete => {
+                log::debug!("Deleting char at: {:?}", self.cursor);
+                self.canvas.put(self.cursor.x, self.cursor.y, " ");
+            }
         }
         Ok(())
     }
@@ -308,7 +311,7 @@ mod tests {
     #[test]
     fn test_render_empty() {
         let tmp = tempfile::NamedTempFile::new().unwrap();
-        let mut app = App::new(Config::default(), tmp.path().to_path_buf()).unwrap();
+        let app = App::new(Config::default(), tmp.path().to_path_buf()).unwrap();
         let mut buf = Buffer::empty(layout::Rect::new(0, 0, 32, 8));
 
         app.render(buf.area, &mut buf);
@@ -446,5 +449,19 @@ mod tests {
 
         let actual = std::fs::read_to_string(tmp.path()).unwrap();
         assert_snapshot!(actual);
+    }
+
+    #[test]
+    fn test_delete() {
+        let mut tmp = tempfile::NamedTempFile::new().unwrap();
+        tmp.write_all("delete me".as_bytes()).unwrap();
+        tmp.flush().unwrap();
+        let mut app = App::new(Config::default(), tmp.path().to_path_buf()).unwrap();
+        input(&mut app, &['x', 'd', 'd', 'x']);
+
+        let mut buf = Buffer::empty(layout::Rect::new(0, 0, 32, 8));
+        app.render(buf.area, &mut buf);
+
+        assert_snapshot!(buf_string(&buf));
     }
 }

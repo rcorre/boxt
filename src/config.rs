@@ -22,6 +22,7 @@ pub enum Action {
     LineAddPoint,
     TextAddLine,
     EnterMode(EnterMode),
+    Delete,
 }
 
 #[derive(Debug, Deserialize)]
@@ -64,6 +65,7 @@ impl Default for BindConfig {
                 // line
                 (" ".to_string(), Action::LineAddPoint),
                 // general
+                ("x".to_string(), Action::Delete),
                 ("C-s".to_string(), Action::Save),
                 ("q".to_string(), Action::Quit),
                 ("enter".to_string(), Action::Confirm),
