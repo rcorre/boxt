@@ -1,26 +1,19 @@
 use anyhow::Result;
 
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
+
 use ratatui::{
-    buffer::Buffer,
-    layout::{Alignment, Rect},
-    style::Stylize,
-    symbols::border,
-    text::{Line, Text},
-    widgets::{
-        block::{Position, Title},
-        Block, Paragraph, Widget,
-    },
-    DefaultTerminal, Frame,
+    prelude::*,
+    widgets::{block::Title, Block, Paragraph},
 };
 
-use crate::{canvas::Canvas, point::Point};
+use crate::{canvas::Canvas, point::Point, rect::Rect, text::Text};
 
 #[derive(Default, Debug)]
 enum Mode {
     #[default]
     Normal,
-    Rect(crate::rect::Rect),
+    Rect(Rect),
     Text(Text),
 }
 
@@ -34,7 +27,7 @@ struct App {
 }
 
 impl App {
-    fn run(&mut self, mut terminal: DefaultTerminal) -> Result<()> {
+    fn run(&mut self, mut terminal: ratatui::DefaultTerminal) -> Result<()> {
         while !self.exit {
             terminal.draw(|frame| self.draw(frame))?;
             self.handle_events()?;
@@ -77,7 +70,7 @@ impl App {
                 r.bottom_right.y = self.cursor_y;
                 log::debug!("Updated rect to {r:?}");
             }
-            Mode::Text(_) => todo!(),
+            Mode::Text(_) => {}
         }
     }
 
@@ -86,14 +79,22 @@ impl App {
 
         if let Mode::Text(s) = &mut self.mode {
             match key.code {
-                KeyCode::Backspace => todo!(),
+                KeyCode::Backspace => {
+                    let c = s.text.pop();
+                    log::debug!("Popped {c:?} from {s:?}");
+                    if c.is_some() {
+                        self.move_cursor(-1, 0);
+                    }
+                    return;
+                }
                 KeyCode::Char(c) => {
-                    log::debug!("Appending {c} to {s}");
-                    s.push(c);
+                    log::debug!("Appending {c} to {s:?}");
+                    s.text.push(c);
+                    self.move_cursor(1, 0);
+                    return;
                 }
                 _ => {}
             }
-            return;
         }
 
         match key.code {
@@ -105,8 +106,12 @@ impl App {
             KeyCode::Char('d') => self.move_cursor(1, 0),
 
             KeyCode::Char('r') => {
-                self.mode = Mode::Rect(crate::rect::Rect::new(self.cursor_x, self.cursor_y, 0, 0));
+                self.mode = Mode::Rect(Rect::new(self.cursor_x, self.cursor_y, 0, 0));
                 self.move_cursor(1, 1);
+                log::debug!("Set mode: {:?}", self.mode);
+            }
+            KeyCode::Char('i') => {
+                self.mode = Mode::Text(Text::new(self.cursor_x, self.cursor_y, ""));
                 log::debug!("Set mode: {:?}", self.mode);
             }
 
@@ -117,7 +122,11 @@ impl App {
                     r.draw(&mut self.canvas);
                     self.mode = Mode::Normal;
                 }
-                Mode::Text(_) => todo!(),
+                Mode::Text(t) => {
+                    log::debug!("Confirming text {:?}", t);
+                    t.draw(&mut self.canvas);
+                    self.mode = Mode::Normal;
+                }
             },
 
             KeyCode::Esc => {
@@ -139,9 +148,9 @@ impl App {
 }
 
 impl Widget for &App {
-    fn render(self, area: Rect, buf: &mut Buffer) {
+    fn render(self, area: ratatui::prelude::Rect, buf: &mut Buffer) {
         let title = Title::from("Boxt".bold());
-        let instructions = Title::from(Line::from(vec![
+        let instructions = Title::from(ratatui::text::Line::from(vec![
             " Move ".into(),
             "<WASD>".blue().bold(),
             " Rect ".into(),
@@ -154,9 +163,9 @@ impl Widget for &App {
             .title(
                 instructions
                     .alignment(Alignment::Center)
-                    .position(Position::Bottom),
+                    .position(ratatui::widgets::block::Position::Bottom),
             )
-            .border_set(border::THICK);
+            .border_set(ratatui::symbols::border::THICK);
 
         // TODO: have separate scratch layer
         let mut canvas = self.canvas.clone();
@@ -167,9 +176,13 @@ impl Widget for &App {
                 log::debug!("Drawing rect: {r:?}");
                 r.draw(&mut canvas);
             }
+            Mode::Text(t) => {
+                log::debug!("Drawing text: {t:?}");
+                t.draw(&mut canvas);
+            }
         }
 
-        let text = Text::raw(canvas.to_string());
+        let text = ratatui::text::Text::raw(canvas.to_string());
         Paragraph::new(text).block(block).render(area, buf);
     }
 }
@@ -204,7 +217,7 @@ mod tests {
     #[test]
     fn test_render_empty() {
         let app = App::default();
-        let mut buf = Buffer::empty(Rect::new(0, 0, 32, 8));
+        let mut buf = Buffer::empty(layout::Rect::new(0, 0, 32, 8));
 
         app.render(buf.area, &mut buf);
 
@@ -214,7 +227,7 @@ mod tests {
     #[test]
     fn test_draw_rect() {
         let mut app = App::default();
-        let mut buf = Buffer::empty(Rect::new(0, 0, 32, 8));
+        let mut buf = Buffer::empty(layout::Rect::new(0, 0, 32, 8));
 
         // Draw one rect and confirm it
         app.handle_key_event(KeyCode::Char('r').into());
@@ -237,7 +250,7 @@ mod tests {
     #[test]
     fn test_cancel_rect() {
         let mut app = App::default();
-        let mut buf = Buffer::empty(Rect::new(0, 0, 32, 8));
+        let mut buf = Buffer::empty(layout::Rect::new(0, 0, 32, 8));
 
         // Draw one rect and cancel it
         app.handle_key_event(KeyCode::Char('r').into());
@@ -257,16 +270,31 @@ mod tests {
         assert_snapshot!(buf_string(&buf));
     }
 
-    // fn handle_key_event() {
-    //     let mut app = App::default();
-    //     app.handle_key_event(KeyCode::Right.into());
-    //     assert_eq!(app.counter, 1);
+    fn input(app: &mut App, keys: &[char]) {
+        for c in keys {
+            app.handle_key_event(KeyCode::Char(*c).into());
+        }
+    }
 
-    //     app.handle_key_event(KeyCode::Left.into());
-    //     assert_eq!(app.counter, 0);
+    #[test]
+    fn test_draw_text() {
+        let mut app = App::default();
+        let mut buf = Buffer::empty(layout::Rect::new(0, 0, 32, 8));
 
-    //     let mut app = App::default();
-    //     app.handle_key_event(KeyCode::Char('q').into());
-    //     assert!(app.exit);
-    // }
+        // Draw some text and confirm it
+        input(&mut app, &['s', 'd', 'i', 'f', 'o', 'o', 'x']);
+        app.handle_key_event(KeyCode::Backspace.into());
+        app.handle_key_event(KeyCode::Enter.into());
+
+        // Draw some more text and cancel it
+        input(&mut app, &['s', 'd', 'i', 'f', 'o', 'o', 'x']);
+        app.handle_key_event(KeyCode::Esc.into());
+
+        // Draw some unconfirmed text
+        input(&mut app, &['i', 'b', 'a', 'r']);
+
+        app.render(buf.area, &mut buf);
+
+        assert_snapshot!(buf_string(&buf));
+    }
 }

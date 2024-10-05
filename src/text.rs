@@ -35,15 +35,14 @@ mod tests {
     }
 
     #[test]
-    fn test_draw_text_0011() {
+    fn test_draw_text() {
         let mut canvas = Canvas::new(2, 2);
         let t = Text::new(2, 1, "foo");
         t.draw(&mut canvas);
         assert_eq!(
             canvas.to_string().trim(),
             "\
-  foo
-  "
+  foo"
         )
     }
 }
