@@ -1,3 +1,5 @@
+pub mod tui;
+
 use std::io::Write;
 
 use anyhow::Result;
