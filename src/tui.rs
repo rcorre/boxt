@@ -229,7 +229,7 @@ impl App {
             }
             Action::Redo => {
                 log::debug!("Redo");
-                // self.canvas.redo();
+                self.canvas.redo();
             }
         }
         Ok(())
@@ -317,7 +317,7 @@ mod tests {
     }
 
     #[test]
-    fn test_render_empty() {
+    fn test_tui_render_empty() {
         let tmp = tempfile::NamedTempFile::new().unwrap();
         let app = App::new(Config::default(), tmp.path().to_path_buf()).unwrap();
         let mut buf = Buffer::empty(layout::Rect::new(0, 0, 32, 8));
@@ -328,7 +328,7 @@ mod tests {
     }
 
     #[test]
-    fn test_draw_rect() {
+    fn test_tui_draw_rect() {
         let tmp = tempfile::NamedTempFile::new().unwrap();
         let mut app = App::new(Config::default(), tmp.path().to_path_buf()).unwrap();
         let mut buf = Buffer::empty(layout::Rect::new(0, 0, 32, 8));
@@ -352,7 +352,7 @@ mod tests {
     }
 
     #[test]
-    fn test_cancel_rect() {
+    fn test_tui_cancel_rect() {
         let tmp = tempfile::NamedTempFile::new().unwrap();
         let mut app = App::new(Config::default(), tmp.path().to_path_buf()).unwrap();
         let mut buf = Buffer::empty(layout::Rect::new(0, 0, 32, 8));
@@ -376,7 +376,7 @@ mod tests {
     }
 
     #[test]
-    fn test_draw_line() {
+    fn test_tui_draw_line() {
         let tmp = tempfile::NamedTempFile::new().unwrap();
         let mut app = App::new(Config::default(), tmp.path().to_path_buf()).unwrap();
         let mut buf = Buffer::empty(layout::Rect::new(0, 0, 32, 8));
@@ -403,7 +403,7 @@ mod tests {
     }
 
     #[test]
-    fn test_draw_text() {
+    fn test_tui_draw_text() {
         let tmp = tempfile::NamedTempFile::new().unwrap();
         let mut app = App::new(Config::default(), tmp.path().to_path_buf()).unwrap();
         let mut buf = Buffer::empty(layout::Rect::new(0, 0, 32, 8));
@@ -426,7 +426,7 @@ mod tests {
     }
 
     #[test]
-    fn test_load() {
+    fn test_tui_load() {
         let mut tmp = tempfile::NamedTempFile::new().unwrap();
         tmp.write_all("  --  \n hello \n _   _ \n".as_bytes())
             .unwrap();
@@ -440,7 +440,7 @@ mod tests {
     }
 
     #[test]
-    fn test_save() {
+    fn test_tui_save() {
         let tmp = tempfile::NamedTempFile::new().unwrap();
         let mut app = App::new(Config::default(), tmp.path().to_path_buf()).unwrap();
 
@@ -460,7 +460,7 @@ mod tests {
     }
 
     #[test]
-    fn test_delete() {
+    fn test_tui_delete() {
         let mut tmp = tempfile::NamedTempFile::new().unwrap();
         tmp.write_all("delete me".as_bytes()).unwrap();
         tmp.flush().unwrap();
@@ -471,5 +471,41 @@ mod tests {
         app.render(buf.area, &mut buf);
 
         assert_snapshot!(buf_string(&buf));
+    }
+
+    #[test]
+    fn test_tui_undo_redo() {
+        let _ = env_logger::builder().is_test(true).try_init();
+        let tmp = tempfile::NamedTempFile::new().unwrap();
+        let mut app = App::new(Config::default(), tmp.path().to_path_buf()).unwrap();
+
+        // Draw a few rects
+        input(&mut app, &['r', 's', 'd']);
+        app.handle_key_event(KeyCode::Enter.into()).unwrap();
+
+        input(&mut app, &['r', 's', 's', 'd', 'd', 'd']);
+        app.handle_key_event(KeyCode::Enter.into()).unwrap();
+
+        input(&mut app, &['d', 'd', 'r', 'w', 'w', 'w', 'a']);
+        app.handle_key_event(KeyCode::Enter.into()).unwrap();
+
+        input(&mut app, &['l', 's', 'a', 'a']);
+        app.handle_key_event(KeyCode::Enter.into()).unwrap();
+
+        for _ in 0..4 {
+            eprintln!("undo");
+            input(&mut app, &['u']);
+            let mut buf = Buffer::empty(layout::Rect::new(0, 0, 32, 8));
+            app.render(buf.area, &mut buf);
+            assert_snapshot!(buf_string(&buf));
+        }
+
+        for _ in 0..4 {
+            eprintln!("redo");
+            input(&mut app, &['U']);
+            let mut buf = Buffer::empty(layout::Rect::new(0, 0, 32, 8));
+            app.render(buf.area, &mut buf);
+            assert_snapshot!(buf_string(&buf));
+        }
     }
 }

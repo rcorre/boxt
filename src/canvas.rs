@@ -2,7 +2,7 @@ use crate::{edit::Edit, point::Point};
 
 const EMPTY: char = ' ';
 
-#[derive(Default, Clone)]
+#[derive(Default, Debug, Clone)]
 struct UndoRedo {
     edits: Vec<Edit>,
     size_x: usize,
@@ -66,25 +66,22 @@ impl Canvas {
                 Edit::Right { start, chars } => {
                     for (i, c) in chars.iter().enumerate() {
                         let c = self.put(start.x + i as u16, start.y, *c);
-                        if start.x as usize + i < size_x && (start.y as usize) < size_y {
-                            // only create an undo entry for things that fit in the original canvas
-                            old.push(c);
-                        }
+                        old.push(c);
                     }
                     undo.push(Edit::Right { start, chars: old });
                 }
                 Edit::Down { start, chars } => {
                     for (i, c) in chars.iter().enumerate() {
                         let c = self.put(start.x, start.y + i as u16, *c);
-                        if (start.x as usize) < size_x && (start.y as usize + i) < size_y {
-                            // only create an undo entry for things that fit in the original canvas
-                            old.push(c);
-                        }
+                        old.push(c);
                     }
                     undo.push(Edit::Down { start, chars: old });
                 }
             }
         }
+
+        // edits must be performed in the reverse order to undo
+        undo.reverse();
         UndoRedo {
             edits: undo,
             size_x,
@@ -94,26 +91,44 @@ impl Canvas {
 
     pub fn edit(&mut self, edits: impl Iterator<Item = Edit>) {
         let undo = self.apply_edits(edits, true);
+        log::debug!("Pushing undo: {undo:?}");
         self.undo.push(undo);
     }
 
     pub fn undo(&mut self) {
-        let Some(UndoRedo {
-            edits,
-            size_x,
-            size_y,
-        }) = self.undo.pop()
-        else {
+        let Some(undo) = self.undo.pop() else {
             log::info!("Nothing left to undo");
             return;
         };
 
-        log::info!("Performing undo");
+        log::debug!("Performing undo: {undo:?}");
+        let redo = self.apply_edits(undo.edits.into_iter(), false);
 
-        self.resize_y(size_y, size_x);
-        self.resize_x(size_x);
-        let redo = self.apply_edits(edits.into_iter(), false);
+        log::debug!("Pushing redo: {redo:?}");
         self.redo.push(redo);
+
+        // resize after, as an undo will typically shrink the canvas
+        // if we shrink first, our edits will be out of bounds
+        self.resize_y(undo.size_y, undo.size_x);
+        self.resize_x(undo.size_x);
+    }
+
+    pub fn redo(&mut self) {
+        let Some(redo) = self.redo.pop() else {
+            log::info!("Nothing left to redo");
+            return;
+        };
+
+        log::debug!("Performing redo: {redo:?}");
+
+        // resize after, as an redo will typically expand the canvas
+        // we need the canvas large enough to accomodate our edits
+        self.resize_y(redo.size_y, redo.size_x);
+        self.resize_x(redo.size_x);
+        let undo = self.apply_edits(redo.edits.into_iter(), false);
+
+        log::debug!("Pushing undo: {undo:?}");
+        self.undo.push(undo);
     }
 
     pub fn clear(&mut self, point: Point) {
@@ -191,11 +206,11 @@ mod tests {
     }
 
     #[test]
-    fn test_canvas_undo() {
+    fn test_canvas_undo_redo() {
         let _ = env_logger::builder().is_test(true).try_init();
         let mut c = Canvas::new(4, 4);
 
-        let state0 = "";
+        let state0 = c.to_string();
         let state1 = "      
   ---+
      |
@@ -238,7 +253,13 @@ mod tests {
         c.undo();
         assert_eq!(c.to_string(), state1);
 
-        // c.undo();
-        // assert_eq!(c.to_string(), state0);
+        c.undo();
+        assert_eq!(c.to_string(), state0);
+
+        c.redo();
+        assert_eq!(c.to_string(), state1);
+
+        c.redo();
+        assert_eq!(c.to_string(), state2);
     }
 }
