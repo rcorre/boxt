@@ -1,13 +1,21 @@
 use anyhow::Result;
 
-use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
+use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
 
 use ratatui::{
     prelude::*,
     widgets::{block::Title, Block, Paragraph},
 };
 
-use crate::{canvas::Canvas, config::Config, line::Line, point::Point, rect::Rect, text::Text};
+use crate::{
+    binds::Binds,
+    canvas::Canvas,
+    config::{Action, Config, EnterMode},
+    line::Line,
+    point::Point,
+    rect::Rect,
+    text::Text,
+};
 
 #[derive(Default, Debug)]
 enum Mode {
@@ -20,7 +28,7 @@ enum Mode {
 
 #[derive(Default)]
 struct App {
-    config: Config,
+    binds: Binds,
     cursor: Point,
     canvas: Canvas,
     exit: bool,
@@ -39,9 +47,10 @@ impl App {
             log::debug!("Creating new canvas");
             Canvas::new(32, 32)
         };
+        let binds = Binds::from_config(config.binds)?;
         Ok(Self {
-            config,
             path,
+            binds,
             canvas,
             ..Default::default()
         })
@@ -101,7 +110,7 @@ impl App {
     }
 
     fn handle_key_event(&mut self, key: KeyEvent) -> Result<()> {
-        log::trace!("Handling key {:?}", key);
+        log::trace!("Handling key {key:?} in mode {:?}", self.mode);
 
         if let Mode::Text(s) = &mut self.mode {
             match key.code {
@@ -113,7 +122,7 @@ impl App {
                     }
                     return Ok(());
                 }
-                KeyCode::Char(c) => {
+                KeyCode::Char(c) if key.modifiers.is_empty() => {
                     log::debug!("Appending {c} to {s:?}");
                     s.text.push(c);
                     self.move_cursor(1, 0);
@@ -123,42 +132,48 @@ impl App {
             }
         }
 
-        match key.code {
-            KeyCode::Char('q') => {
+        let Some(action) = self.binds.get(&key) else {
+            log::trace!("Mapped key to no action");
+            return Ok(());
+        };
+        log::trace!("Mapped key to action {action:?}");
+
+        match action {
+            Action::Quit => {
                 log::info!("Exit requested");
                 self.exit = true;
             }
-            KeyCode::Char('s') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+
+            Action::Save => {
                 log::info!("Saving to {:?}", self.path);
                 std::fs::write(&self.path, self.canvas.to_string())?;
             }
 
-            KeyCode::Char('w') => self.move_cursor(0, -1),
-            KeyCode::Char('s') => self.move_cursor(0, 1),
-            KeyCode::Char('a') => self.move_cursor(-1, 0),
-            KeyCode::Char('d') => self.move_cursor(1, 0),
+            Action::MoveCursor { x, y } => self.move_cursor(*x, *y),
 
-            KeyCode::Char('r') => {
-                self.mode = Mode::Rect(Rect {
-                    top_left: self.cursor,
-                    bottom_right: self.cursor,
-                });
-                self.move_cursor(1, 1);
-                log::debug!("Set mode: {:?}", self.mode);
-            }
-            KeyCode::Char('l') => {
-                self.mode = Mode::Line(Line(vec![self.cursor; 2]));
-                log::debug!("Set mode: {:?}", self.mode);
-            }
-            KeyCode::Char('i') => {
-                self.mode = Mode::Text(Text {
-                    start: self.cursor,
-                    text: "".into(),
-                });
-                log::debug!("Set mode: {:?}", self.mode);
-            }
+            Action::EnterMode(mode) => match mode {
+                EnterMode::Rect => {
+                    self.mode = Mode::Rect(Rect {
+                        top_left: self.cursor,
+                        bottom_right: self.cursor,
+                    });
+                    self.move_cursor(1, 1);
+                    log::debug!("Set mode: {:?}", self.mode);
+                }
+                EnterMode::Line => {
+                    self.mode = Mode::Line(Line(vec![self.cursor; 2]));
+                    log::debug!("Set mode: {:?}", self.mode);
+                }
+                EnterMode::Text => {
+                    self.mode = Mode::Text(Text {
+                        start: self.cursor,
+                        text: "".into(),
+                    });
+                    log::debug!("Set mode: {:?}", self.mode);
+                }
+            },
 
-            KeyCode::Char(' ') => match &mut self.mode {
+            Action::LineAddPoint => match &mut self.mode {
                 Mode::Line(l) => {
                     log::debug!("Adding point to line: {l:?}");
                     l.0.push(self.cursor);
@@ -166,7 +181,7 @@ impl App {
                 _ => {}
             },
 
-            KeyCode::Enter => match &self.mode {
+            Action::Confirm => match &self.mode {
                 Mode::Normal => {}
                 Mode::Rect(r) => {
                     log::debug!("Confirming rect {r:?}");
@@ -185,7 +200,7 @@ impl App {
                 }
             },
 
-            KeyCode::Esc => {
+            Action::Cancel => {
                 log::debug!("Cancelling mode: {:?}", self.mode);
                 match std::mem::take(&mut self.mode) {
                     Mode::Normal => {}
@@ -267,6 +282,7 @@ mod tests {
     use std::io::Write;
 
     use super::*;
+    use event::KeyModifiers;
     use insta::assert_snapshot;
 
     fn buf_string(buf: &Buffer) -> String {
@@ -290,7 +306,8 @@ mod tests {
 
     #[test]
     fn test_render_empty() {
-        let app = App::default();
+        let tmp = tempfile::NamedTempFile::new().unwrap();
+        let mut app = App::new(Config::default(), tmp.path().to_path_buf()).unwrap();
         let mut buf = Buffer::empty(layout::Rect::new(0, 0, 32, 8));
 
         app.render(buf.area, &mut buf);
@@ -300,7 +317,8 @@ mod tests {
 
     #[test]
     fn test_draw_rect() {
-        let mut app = App::default();
+        let tmp = tempfile::NamedTempFile::new().unwrap();
+        let mut app = App::new(Config::default(), tmp.path().to_path_buf()).unwrap();
         let mut buf = Buffer::empty(layout::Rect::new(0, 0, 32, 8));
 
         // Draw one rect and confirm it
@@ -323,7 +341,8 @@ mod tests {
 
     #[test]
     fn test_cancel_rect() {
-        let mut app = App::default();
+        let tmp = tempfile::NamedTempFile::new().unwrap();
+        let mut app = App::new(Config::default(), tmp.path().to_path_buf()).unwrap();
         let mut buf = Buffer::empty(layout::Rect::new(0, 0, 32, 8));
 
         // Draw one rect and cancel it
@@ -346,7 +365,8 @@ mod tests {
 
     #[test]
     fn test_draw_line() {
-        let mut app = App::default();
+        let tmp = tempfile::NamedTempFile::new().unwrap();
+        let mut app = App::new(Config::default(), tmp.path().to_path_buf()).unwrap();
         let mut buf = Buffer::empty(layout::Rect::new(0, 0, 32, 8));
 
         // Draw a line and confirm it
@@ -372,7 +392,8 @@ mod tests {
 
     #[test]
     fn test_draw_text() {
-        let mut app = App::default();
+        let tmp = tempfile::NamedTempFile::new().unwrap();
+        let mut app = App::new(Config::default(), tmp.path().to_path_buf()).unwrap();
         let mut buf = Buffer::empty(layout::Rect::new(0, 0, 32, 8));
 
         // Draw some text and confirm it

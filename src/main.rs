@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{bail, Result};
 use boxt::{config::Config, tui};
 use clap::Parser;
 
@@ -19,11 +19,21 @@ fn main() -> Result<()> {
     let config_path = xdg.get_config_file("config.toml");
     log::debug!("Reading config from {config_path:?}");
 
-    let config = std::fs::read_to_string(config_path)?;
-    log::trace!("Read config:\n {config:?}");
+    let config = match std::fs::read_to_string(&config_path) {
+        Ok(s) => {
+            log::trace!("Read config:\n {s:?}");
+            toml::from_str(&s)?
+        }
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+            log::trace!("Using default config");
+            Config::default()
+        }
+        Err(err) => {
+            bail!("Failed to read {config_path:?}: {err:?}");
+        }
+    };
 
-    let config: Config = toml::from_str(&config)?;
-    log::trace!("Parsed config:\n {config:?}");
+    log::trace!("Using config:\n {config:?}");
 
     tui::start(config, args.path)
 }
