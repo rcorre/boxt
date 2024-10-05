@@ -1,7 +1,4 @@
-use crate::{
-    edit::{Direction, Edit},
-    point::Point,
-};
+use crate::edit::Edit;
 
 const EMPTY: char = ' ';
 
@@ -29,19 +26,15 @@ impl Canvas {
     pub fn edit(&mut self, edits: impl Iterator<Item = Edit>) {
         for e in edits {
             log::trace!("Applying edit: {e:?}");
-            let Point { x, y } = e.start;
-            match e.dir {
-                Direction::Point => {
-                    self.put(x, y, e.char);
-                }
-                Direction::Right(len) => {
-                    for x in x..(x + len) {
-                        self.put(x, y, e.char);
+            match e {
+                Edit::Right { start, chars } => {
+                    for (i, c) in chars.iter().enumerate() {
+                        self.put(start.x + i as u16, start.y, *c);
                     }
                 }
-                Direction::Down(len) => {
-                    for y in y..(y + len) {
-                        self.put(x, y, e.char);
+                Edit::Down { start, chars } => {
+                    for (i, c) in chars.iter().enumerate() {
+                        self.put(start.x, start.y + i as u16, *c);
                     }
                 }
             }
@@ -81,6 +74,8 @@ impl Canvas {
 
 #[cfg(test)]
 mod tests {
+    use crate::point::Point;
+
     use super::*;
 
     #[test]
@@ -89,20 +84,13 @@ mod tests {
         let mut c = Canvas::new(4, 4);
         c.edit(
             vec![
-                Edit {
+                Edit::Right {
                     start: Point { x: 2, y: 1 },
-                    char: '-',
-                    dir: Direction::Right(4),
+                    chars: vec!['-', '-', '-', '+'],
                 },
-                Edit {
+                Edit::Down {
                     start: Point { x: 5, y: 1 },
-                    char: '|',
-                    dir: Direction::Down(3),
-                },
-                Edit {
-                    start: Point { x: 5, y: 1 },
-                    char: '+',
-                    dir: Direction::Point,
+                    chars: vec!['|', '|'],
                 },
             ]
             .into_iter(),
