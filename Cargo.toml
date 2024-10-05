@@ -2,6 +2,13 @@
 name = "boxt"
 version = "0.1.0"
 edition = "2021"
+license = "MIT"
+description = "Box diagram TUI"
+homepage = "https://codeberg.org/rrc/boxt"
+repository = "https://codeberg.org/rrc/boxt"
+keywords = ["tui", "ascii", "art", "box", "diagram"]
+categories = ["graphics", "development-tools", "visualization", "multimedia::images"]
+
 
 [dependencies]
 anyhow = "1.0"
