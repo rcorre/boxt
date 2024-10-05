@@ -21,6 +21,7 @@ enum Mode {
     #[default]
     Normal,
     Rect(crate::rect::Rect),
+    Text(Text),
 }
 
 #[derive(Default)]
@@ -76,11 +77,25 @@ impl App {
                 r.bottom_right.y = self.cursor_y;
                 log::debug!("Updated rect to {r:?}");
             }
+            Mode::Text(_) => todo!(),
         }
     }
 
     fn handle_key_event(&mut self, key: KeyEvent) {
         log::trace!("Handling key {:?}", key);
+
+        if let Mode::Text(s) = &mut self.mode {
+            match key.code {
+                KeyCode::Backspace => todo!(),
+                KeyCode::Char(c) => {
+                    log::debug!("Appending {c} to {s}");
+                    s.push(c);
+                }
+                _ => {}
+            }
+            return;
+        }
+
         match key.code {
             KeyCode::Char('q') => self.exit = true,
 
@@ -102,6 +117,7 @@ impl App {
                     r.draw(&mut self.canvas);
                     self.mode = Mode::Normal;
                 }
+                Mode::Text(_) => todo!(),
             },
 
             KeyCode::Esc => {
@@ -110,6 +126,9 @@ impl App {
                     Mode::Normal => {}
                     Mode::Rect(r) => {
                         self.warp_cursor(&r.top_left);
+                    }
+                    Mode::Text(t) => {
+                        self.warp_cursor(&t.start);
                     }
                 }
             }
