@@ -14,13 +14,13 @@ use ratatui::{
     DefaultTerminal, Frame,
 };
 
-use crate::canvas::Canvas;
+use crate::{canvas::Canvas, point::Point};
 
 #[derive(Default, Debug)]
 enum Mode {
     #[default]
     Normal,
-    Rect(crate::Rect),
+    Rect(crate::rect::Rect),
 }
 
 #[derive(Default)]
@@ -59,10 +59,10 @@ impl App {
         Ok(())
     }
 
-    fn warp_cursor(&mut self, x: u16, y: u16) {
-        self.cursor_x = x;
-        self.cursor_y = y;
-        log::debug!("Moved cursor to ({}, {})", self.cursor_x, self.cursor_y);
+    fn warp_cursor(&mut self, p: &Point) {
+        self.cursor_x = p.x;
+        self.cursor_y = p.y;
+        log::debug!("Moved cursor to {p:?}");
     }
 
     fn move_cursor(&mut self, x: i16, y: i16) {
@@ -72,8 +72,8 @@ impl App {
         match &mut self.mode {
             Mode::Normal => {}
             Mode::Rect(r) => {
-                r.x2 = self.cursor_x;
-                r.y2 = self.cursor_y;
+                r.bottom_right.x = self.cursor_x;
+                r.bottom_right.y = self.cursor_y;
                 log::debug!("Updated rect to {r:?}");
             }
         }
@@ -90,12 +90,7 @@ impl App {
             KeyCode::Char('d') => self.move_cursor(1, 0),
 
             KeyCode::Char('r') => {
-                self.mode = Mode::Rect(crate::Rect {
-                    x1: self.cursor_x,
-                    y1: self.cursor_y,
-                    x2: 0,
-                    y2: 0,
-                });
+                self.mode = Mode::Rect(crate::rect::Rect::new(self.cursor_x, self.cursor_y, 0, 0));
                 self.move_cursor(1, 1);
                 log::debug!("Set mode: {:?}", self.mode);
             }
@@ -109,13 +104,15 @@ impl App {
                 }
             },
 
-            KeyCode::Esc => match &self.mode {
-                Mode::Normal => {}
-                Mode::Rect(r) => {
-                    log::debug!("Cancelling mode: {:?}", self.mode);
-                    self.warp_cursor(r.x1, r.y1);
+            KeyCode::Esc => {
+                log::debug!("Cancelling mode: {:?}", self.mode);
+                match std::mem::take(&mut self.mode) {
+                    Mode::Normal => {}
+                    Mode::Rect(r) => {
+                        self.warp_cursor(&r.top_left);
+                    }
                 }
-            },
+            }
 
             _ => {}
         }
