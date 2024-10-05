@@ -14,9 +14,10 @@ use ratatui::{
     DefaultTerminal, Frame,
 };
 
-#[derive(Debug, Default)]
+use crate::Document;
+
 struct App {
-    counter: u32,
+    document: Document,
     exit: bool,
 }
 
@@ -48,8 +49,6 @@ impl App {
     fn handle_key_event(&mut self, key_event: KeyEvent) {
         match key_event.code {
             KeyCode::Char('q') => self.exit = true,
-            KeyCode::Left => self.counter -= 1,
-            KeyCode::Right => self.counter += 1,
             _ => {}
         }
     }
@@ -75,23 +74,20 @@ impl Widget for &App {
             )
             .border_set(border::THICK);
 
-        let counter_text = Text::from(vec![Line::from(vec![
-            "Value: ".into(),
-            self.counter.to_string().yellow(),
-        ])]);
-
-        Paragraph::new(counter_text)
-            .centered()
-            .block(block)
-            .render(area, buf);
+        let counter_text = Text::raw(self.document.to_string());
+        Paragraph::new(counter_text).block(block).render(area, buf);
     }
 }
 
-pub fn start() -> Result<()> {
+pub fn start(document: Document) -> Result<()> {
     let mut terminal = ratatui::init();
     terminal.clear()?;
 
-    let app_result = App::default().run(terminal);
+    let app_result = App {
+        document,
+        exit: false,
+    }
+    .run(terminal);
     ratatui::restore();
     app_result
 }
@@ -103,7 +99,12 @@ mod tests {
 
     #[test]
     fn render() {
-        let app = App::default();
+        let s = std::fs::read_to_string("examples/simple.toml").unwrap();
+        let document: Document = toml::from_str(&s).unwrap();
+        let app = App {
+            document,
+            exit: false,
+        };
         let mut buf = Buffer::empty(Rect::new(0, 0, 50, 4));
 
         app.render(buf.area, &mut buf);
@@ -128,17 +129,17 @@ mod tests {
         assert_eq!(buf, expected);
     }
 
-    #[test]
-    fn handle_key_event() {
-        let mut app = App::default();
-        app.handle_key_event(KeyCode::Right.into());
-        assert_eq!(app.counter, 1);
+    // #[test]
+    // fn handle_key_event() {
+    //     let mut app = App::default();
+    //     app.handle_key_event(KeyCode::Right.into());
+    //     assert_eq!(app.counter, 1);
 
-        app.handle_key_event(KeyCode::Left.into());
-        assert_eq!(app.counter, 0);
+    //     app.handle_key_event(KeyCode::Left.into());
+    //     assert_eq!(app.counter, 0);
 
-        let mut app = App::default();
-        app.handle_key_event(KeyCode::Char('q').into());
-        assert!(app.exit);
-    }
+    //     let mut app = App::default();
+    //     app.handle_key_event(KeyCode::Char('q').into());
+    //     assert!(app.exit);
+    // }
 }

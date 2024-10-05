@@ -1,4 +1,4 @@
-use std::{fs, path::PathBuf};
+use std::path::PathBuf;
 
 use anyhow::Result;
 use clap::{Args, Parser, Subcommand};
@@ -39,14 +39,14 @@ fn main() -> Result<()> {
 }
 
 fn render(args: RenderArgs) -> Result<()> {
-    let s = fs::read_to_string(args.path)?;
-    log::trace!("Parsing:\n{s}");
-    let doc: Document = toml::from_str(&s)?;
-    log::trace!("Parsing:\n{s}");
+    log::trace!("Loading document from: {:?}", args.path);
+    let doc = Document::load(args.path)?;
     doc.draw(&mut std::io::stdout())?;
     Ok(())
 }
 
 fn edit(args: EditArgs) -> Result<()> {
-    tui::start()
+    log::trace!("Loading document from: {:?}", args.path);
+    let doc = Document::load(args.path.unwrap())?;
+    tui::start(doc)
 }

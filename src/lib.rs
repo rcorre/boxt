@@ -68,6 +68,29 @@ impl Document {
         )
     }
 
+    pub fn load(path: impl AsRef<std::path::Path>) -> Result<Document> {
+        let s = std::fs::read_to_string(path)?;
+        log::trace!("Parsing:\n{s}");
+        let doc = toml::from_str(&s)?;
+        Ok(doc)
+    }
+
+    pub fn to_string(&self) -> String {
+        let (max_x, max_y) = self.max_xy();
+        let mut res = vec![vec![" ".to_string(); max_x]; max_y];
+        for r in &self.rect {
+            r.draw(&mut res);
+        }
+
+        let mut s = String::new();
+        for row in res {
+            s += &row.join("");
+            s += "\n";
+        }
+
+        s
+    }
+
     pub fn draw(&self, w: &mut impl Write) -> Result<()> {
         let (max_x, max_y) = self.max_xy();
         let mut res = vec![vec![" ".to_string(); max_x]; max_y];
