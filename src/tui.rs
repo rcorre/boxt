@@ -7,13 +7,14 @@ use ratatui::{
     widgets::{block::Title, Block, Paragraph},
 };
 
-use crate::{canvas::Canvas, point::Point, rect::Rect, text::Text};
+use crate::{canvas::Canvas, line::Line, point::Point, rect::Rect, text::Text};
 
 #[derive(Default, Debug)]
 enum Mode {
     #[default]
     Normal,
     Rect(Rect),
+    Line(Line),
     Text(Text),
 }
 
@@ -70,6 +71,15 @@ impl App {
                 r.bottom_right.y = self.cursor_y;
                 log::debug!("Updated rect to {r:?}");
             }
+            Mode::Line(l) => {
+                let Some(last) = l.0.last_mut() else {
+                    log::warn!("Zero-point line");
+                    return;
+                };
+                last.x = self.cursor_x;
+                last.y = self.cursor_y;
+                log::debug!("Updated line to {l:?}");
+            }
             Mode::Text(_) => {}
         }
     }
@@ -110,6 +120,16 @@ impl App {
                 self.move_cursor(1, 1);
                 log::debug!("Set mode: {:?}", self.mode);
             }
+            KeyCode::Char('l') => {
+                self.mode = Mode::Line(Line(vec![
+                    Point {
+                        x: self.cursor_x,
+                        y: self.cursor_y,
+                    };
+                    2
+                ]));
+                log::debug!("Set mode: {:?}", self.mode);
+            }
             KeyCode::Char('i') => {
                 self.mode = Mode::Text(Text::new(self.cursor_x, self.cursor_y, ""));
                 log::debug!("Set mode: {:?}", self.mode);
@@ -118,12 +138,17 @@ impl App {
             KeyCode::Enter => match &self.mode {
                 Mode::Normal => {}
                 Mode::Rect(r) => {
-                    log::debug!("Confirming rect {:?}", r);
+                    log::debug!("Confirming rect {r:?}");
                     r.draw(&mut self.canvas);
                     self.mode = Mode::Normal;
                 }
+                Mode::Line(l) => {
+                    log::debug!("Confirming line {l:?}");
+                    l.draw(&mut self.canvas);
+                    self.mode = Mode::Normal;
+                }
                 Mode::Text(t) => {
-                    log::debug!("Confirming text {:?}", t);
+                    log::debug!("Confirming text {t:?}");
                     t.draw(&mut self.canvas);
                     self.mode = Mode::Normal;
                 }
@@ -135,6 +160,11 @@ impl App {
                     Mode::Normal => {}
                     Mode::Rect(r) => {
                         self.warp_cursor(&r.top_left);
+                    }
+                    Mode::Line(l) => {
+                        if let Some(p) = l.0.first() {
+                            self.warp_cursor(p);
+                        }
                     }
                     Mode::Text(t) => {
                         self.warp_cursor(&t.start);
@@ -175,6 +205,10 @@ impl Widget for &App {
             Mode::Rect(r) => {
                 log::debug!("Drawing rect: {r:?}");
                 r.draw(&mut canvas);
+            }
+            Mode::Line(l) => {
+                log::debug!("Drawing line: {l:?}");
+                l.draw(&mut canvas);
             }
             Mode::Text(t) => {
                 log::debug!("Drawing text: {t:?}");
@@ -274,6 +308,30 @@ mod tests {
         for c in keys {
             app.handle_key_event(KeyCode::Char(*c).into());
         }
+    }
+
+    #[test]
+    fn test_draw_line() {
+        let mut app = App::default();
+        let mut buf = Buffer::empty(layout::Rect::new(0, 0, 32, 8));
+
+        // Draw a line and confirm it
+        input(&mut app, &['l', 'd', 'd', 's', 's', 's']);
+        app.handle_key_event(KeyCode::Enter.into());
+
+        // Draw a line and cancel it
+        input(&mut app, &['l', 'd', 'd', 's', 's', 's']);
+        app.handle_key_event(KeyCode::Esc.into());
+
+        // Draw a unconfirmed line
+        input(
+            &mut app,
+            &['s', 'd', 'd', 'd', 'd', 'd', 'l', 'w', 'w', 'a', 'a'],
+        );
+
+        app.render(buf.area, &mut buf);
+
+        assert_snapshot!(buf_string(&buf));
     }
 
     #[test]
