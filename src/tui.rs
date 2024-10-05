@@ -48,6 +48,7 @@ impl App {
             Canvas::new(32, 32)
         };
         let binds = Binds::from_config(config.binds)?;
+        log::trace!("Using binds: {binds:#?}");
         Ok(Self {
             path,
             binds,

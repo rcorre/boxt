@@ -53,6 +53,10 @@ impl Default for BindConfig {
                 ("a".to_string(), Action::MoveCursor { x: -1, y: 0 }),
                 ("s".to_string(), Action::MoveCursor { x: 0, y: 1 }),
                 ("d".to_string(), Action::MoveCursor { x: 1, y: 0 }),
+                ("S-w".to_string(), Action::MoveCursor { x: 0, y: -4 }),
+                ("S-a".to_string(), Action::MoveCursor { x: -4, y: 0 }),
+                ("S-s".to_string(), Action::MoveCursor { x: 0, y: 4 }),
+                ("S-d".to_string(), Action::MoveCursor { x: 4, y: 0 }),
                 // mode
                 ("r".to_string(), Action::EnterMode(EnterMode::Rect)),
                 ("i".to_string(), Action::EnterMode(EnterMode::Text)),
