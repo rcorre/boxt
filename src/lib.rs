@@ -4,6 +4,7 @@
 pub mod binds;
 pub mod canvas;
 pub mod config;
+pub mod edit;
 pub mod line;
 pub mod point;
 pub mod rect;
