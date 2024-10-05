@@ -7,7 +7,7 @@ use ratatui::{
     widgets::{block::Title, Block, Paragraph},
 };
 
-use crate::{canvas::Canvas, line::Line, point::Point, rect::Rect, text::Text};
+use crate::{canvas::Canvas, config::Config, line::Line, point::Point, rect::Rect, text::Text};
 
 #[derive(Default, Debug)]
 enum Mode {
@@ -20,6 +20,7 @@ enum Mode {
 
 #[derive(Default)]
 struct App {
+    config: Config,
     cursor: Point,
     canvas: Canvas,
     exit: bool,
@@ -28,7 +29,7 @@ struct App {
 }
 
 impl App {
-    fn new(path: std::path::PathBuf) -> Result<Self> {
+    fn new(config: Config, path: std::path::PathBuf) -> Result<Self> {
         let canvas = if std::fs::exists(&path)? {
             log::debug!("Loading from {path:?}");
             let content = std::fs::read_to_string(&path)?;
@@ -39,6 +40,7 @@ impl App {
             Canvas::new(32, 32)
         };
         Ok(Self {
+            config,
             path,
             canvas,
             ..Default::default()
@@ -251,11 +253,11 @@ impl Widget for &App {
     }
 }
 
-pub fn start(path: std::path::PathBuf) -> Result<()> {
+pub fn start(config: Config, path: std::path::PathBuf) -> Result<()> {
     let mut terminal = ratatui::init();
     terminal.clear()?;
 
-    let app_result = App::new(path)?.run(terminal);
+    let app_result = App::new(config, path)?.run(terminal);
     ratatui::restore();
     app_result
 }
@@ -396,7 +398,7 @@ mod tests {
         tmp.write_all("  --  \n hello \n _   _ \n".as_bytes())
             .unwrap();
         tmp.flush().unwrap();
-        let app = App::new(tmp.path().to_path_buf()).unwrap();
+        let app = App::new(Config::default(), tmp.path().to_path_buf()).unwrap();
 
         let mut buf = Buffer::empty(layout::Rect::new(0, 0, 32, 8));
         app.render(buf.area, &mut buf);
@@ -407,7 +409,7 @@ mod tests {
     #[test]
     fn test_save() {
         let tmp = tempfile::NamedTempFile::new().unwrap();
-        let mut app = App::new(tmp.path().to_path_buf()).unwrap();
+        let mut app = App::new(Config::default(), tmp.path().to_path_buf()).unwrap();
 
         // Draw some text and confirm it
         input(
