@@ -1,6 +1,6 @@
 use anyhow::Result;
 
-use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
+use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 
 use ratatui::{
     prelude::*,
@@ -24,9 +24,27 @@ struct App {
     canvas: Canvas,
     exit: bool,
     mode: Mode,
+    path: std::path::PathBuf,
 }
 
 impl App {
+    fn new(path: std::path::PathBuf) -> Result<Self> {
+        let canvas = if std::fs::exists(&path)? {
+            log::debug!("Loading from {path:?}");
+            let content = std::fs::read_to_string(&path)?;
+            log::trace!("Loading content:\n{content:?}");
+            Canvas::from_str(&content)
+        } else {
+            log::debug!("Creating new canvas");
+            Canvas::new(32, 32)
+        };
+        Ok(Self {
+            path,
+            canvas,
+            ..Default::default()
+        })
+    }
+
     fn run(&mut self, mut terminal: ratatui::DefaultTerminal) -> Result<()> {
         while !self.exit {
             terminal.draw(|frame| self.draw(frame))?;
@@ -46,7 +64,7 @@ impl App {
             // it's important to check that the event is a key press event as
             // crossterm also emits key release and repeat events on Windows.
             Event::Key(key_event) if key_event.kind == KeyEventKind::Press => {
-                self.handle_key_event(key_event)
+                self.handle_key_event(key_event)?
             }
             _ => {}
         };
@@ -80,7 +98,7 @@ impl App {
         }
     }
 
-    fn handle_key_event(&mut self, key: KeyEvent) {
+    fn handle_key_event(&mut self, key: KeyEvent) -> Result<()> {
         log::trace!("Handling key {:?}", key);
 
         if let Mode::Text(s) = &mut self.mode {
@@ -91,20 +109,27 @@ impl App {
                     if c.is_some() {
                         self.move_cursor(-1, 0);
                     }
-                    return;
+                    return Ok(());
                 }
                 KeyCode::Char(c) => {
                     log::debug!("Appending {c} to {s:?}");
                     s.text.push(c);
                     self.move_cursor(1, 0);
-                    return;
+                    return Ok(());
                 }
                 _ => {}
             }
         }
 
         match key.code {
-            KeyCode::Char('q') => self.exit = true,
+            KeyCode::Char('q') => {
+                log::info!("Exit requested");
+                self.exit = true;
+            }
+            KeyCode::Char('s') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                log::info!("Saving to {:?}", self.path);
+                std::fs::write(&self.path, self.canvas.to_string())?;
+            }
 
             KeyCode::Char('w') => self.move_cursor(0, -1),
             KeyCode::Char('s') => self.move_cursor(0, 1),
@@ -178,6 +203,7 @@ impl App {
 
             _ => {}
         }
+        Ok(())
     }
 }
 
@@ -225,17 +251,19 @@ impl Widget for &App {
     }
 }
 
-pub fn start() -> Result<()> {
+pub fn start(path: std::path::PathBuf) -> Result<()> {
     let mut terminal = ratatui::init();
     terminal.clear()?;
 
-    let app_result = App::default().run(terminal);
+    let app_result = App::new(path)?.run(terminal);
     ratatui::restore();
     app_result
 }
 
 #[cfg(test)]
 mod tests {
+    use std::io::Write;
+
     use super::*;
     use insta::assert_snapshot;
 
@@ -250,6 +278,12 @@ mod tests {
             })
             .collect::<Vec<_>>()
             .join("\n")
+    }
+
+    fn input(app: &mut App, keys: &[char]) {
+        for c in keys {
+            app.handle_key_event(KeyCode::Char(*c).into()).unwrap();
+        }
     }
 
     #[test]
@@ -268,17 +302,17 @@ mod tests {
         let mut buf = Buffer::empty(layout::Rect::new(0, 0, 32, 8));
 
         // Draw one rect and confirm it
-        app.handle_key_event(KeyCode::Char('r').into());
-        app.handle_key_event(KeyCode::Char('s').into());
-        app.handle_key_event(KeyCode::Char('d').into());
-        app.handle_key_event(KeyCode::Enter.into());
+        app.handle_key_event(KeyCode::Char('r').into()).unwrap();
+        app.handle_key_event(KeyCode::Char('s').into()).unwrap();
+        app.handle_key_event(KeyCode::Char('d').into()).unwrap();
+        app.handle_key_event(KeyCode::Enter.into()).unwrap();
 
         // Start drawing another rect
-        app.handle_key_event(KeyCode::Char('d').into());
-        app.handle_key_event(KeyCode::Char('d').into());
-        app.handle_key_event(KeyCode::Char('r').into());
-        app.handle_key_event(KeyCode::Char('s').into());
-        app.handle_key_event(KeyCode::Char('d').into());
+        app.handle_key_event(KeyCode::Char('d').into()).unwrap();
+        app.handle_key_event(KeyCode::Char('d').into()).unwrap();
+        app.handle_key_event(KeyCode::Char('r').into()).unwrap();
+        app.handle_key_event(KeyCode::Char('s').into()).unwrap();
+        app.handle_key_event(KeyCode::Char('d').into()).unwrap();
 
         app.render(buf.area, &mut buf);
 
@@ -291,27 +325,21 @@ mod tests {
         let mut buf = Buffer::empty(layout::Rect::new(0, 0, 32, 8));
 
         // Draw one rect and cancel it
-        app.handle_key_event(KeyCode::Char('r').into());
-        app.handle_key_event(KeyCode::Char('s').into());
-        app.handle_key_event(KeyCode::Char('d').into());
-        app.handle_key_event(KeyCode::Esc.into());
+        app.handle_key_event(KeyCode::Char('r').into()).unwrap();
+        app.handle_key_event(KeyCode::Char('s').into()).unwrap();
+        app.handle_key_event(KeyCode::Char('d').into()).unwrap();
+        app.handle_key_event(KeyCode::Esc.into()).unwrap();
 
         // Start drawing another rect
-        app.handle_key_event(KeyCode::Char('d').into());
-        app.handle_key_event(KeyCode::Char('d').into());
-        app.handle_key_event(KeyCode::Char('r').into());
-        app.handle_key_event(KeyCode::Char('s').into());
-        app.handle_key_event(KeyCode::Char('d').into());
+        app.handle_key_event(KeyCode::Char('d').into()).unwrap();
+        app.handle_key_event(KeyCode::Char('d').into()).unwrap();
+        app.handle_key_event(KeyCode::Char('r').into()).unwrap();
+        app.handle_key_event(KeyCode::Char('s').into()).unwrap();
+        app.handle_key_event(KeyCode::Char('d').into()).unwrap();
 
         app.render(buf.area, &mut buf);
 
         assert_snapshot!(buf_string(&buf));
-    }
-
-    fn input(app: &mut App, keys: &[char]) {
-        for c in keys {
-            app.handle_key_event(KeyCode::Char(*c).into());
-        }
     }
 
     #[test]
@@ -321,11 +349,11 @@ mod tests {
 
         // Draw a line and confirm it
         input(&mut app, &['l', 'd', 'd', 's', 's', 's']);
-        app.handle_key_event(KeyCode::Enter.into());
+        app.handle_key_event(KeyCode::Enter.into()).unwrap();
 
         // Draw a line and cancel it
         input(&mut app, &['l', 'd', 'd', 's', 's', 's']);
-        app.handle_key_event(KeyCode::Esc.into());
+        app.handle_key_event(KeyCode::Esc.into()).unwrap();
 
         // Draw a unconfirmed line with multiple points
         input(
@@ -347,12 +375,12 @@ mod tests {
 
         // Draw some text and confirm it
         input(&mut app, &['s', 'd', 'i', 'f', 'o', 'o', 'x']);
-        app.handle_key_event(KeyCode::Backspace.into());
-        app.handle_key_event(KeyCode::Enter.into());
+        app.handle_key_event(KeyCode::Backspace.into()).unwrap();
+        app.handle_key_event(KeyCode::Enter.into()).unwrap();
 
         // Draw some more text and cancel it
         input(&mut app, &['s', 'd', 'i', 'f', 'o', 'o', 'x']);
-        app.handle_key_event(KeyCode::Esc.into());
+        app.handle_key_event(KeyCode::Esc.into()).unwrap();
 
         // Draw some unconfirmed text
         input(&mut app, &['i', 'b', 'a', 'r']);
@@ -360,5 +388,39 @@ mod tests {
         app.render(buf.area, &mut buf);
 
         assert_snapshot!(buf_string(&buf));
+    }
+
+    #[test]
+    fn test_load() {
+        let mut tmp = tempfile::NamedTempFile::new().unwrap();
+        tmp.write_all("  --  \n hello \n _   _ \n".as_bytes())
+            .unwrap();
+        tmp.flush().unwrap();
+        let app = App::new(tmp.path().to_path_buf()).unwrap();
+
+        let mut buf = Buffer::empty(layout::Rect::new(0, 0, 32, 8));
+        app.render(buf.area, &mut buf);
+
+        assert_snapshot!(buf_string(&buf));
+    }
+
+    #[test]
+    fn test_save() {
+        let tmp = tempfile::NamedTempFile::new().unwrap();
+        let mut app = App::new(tmp.path().to_path_buf()).unwrap();
+
+        // Draw some text and confirm it
+        input(
+            &mut app,
+            &['i', 's', 'a', 'v', 'e', ' ', 't', 'h', 'i', 's'],
+        );
+        app.handle_key_event(KeyCode::Enter.into()).unwrap();
+
+        // Save
+        app.handle_key_event(KeyEvent::new(KeyCode::Char('s'), KeyModifiers::CONTROL))
+            .unwrap();
+
+        let actual = std::fs::read_to_string(tmp.path()).unwrap();
+        assert_snapshot!(actual);
     }
 }

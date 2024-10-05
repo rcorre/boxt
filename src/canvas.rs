@@ -8,6 +8,20 @@ impl Canvas {
         Self(vec![vec![EMPTY.into(); size_x as usize]; size_y as usize])
     }
 
+    pub fn from_str(s: &str) -> Canvas {
+        let w = s.lines().map(|l| l.len()).sum();
+        let v = s
+            .lines()
+            .map(|l| {
+                // TODO: not grapheme safe
+                let mut v: Vec<String> = l.chars().map(|c| c.to_string()).collect();
+                v.resize(w, EMPTY.into());
+                v
+            })
+            .collect();
+        Self(v)
+    }
+
     // Set a cell to a string. Expands to accomodate the cell if needed.
     pub fn put(&mut self, x: u16, y: u16, s: &str) {
         let x = x as usize;

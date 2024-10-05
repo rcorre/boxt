@@ -4,10 +4,12 @@ use clap::Parser;
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
-struct CLI {}
+struct CLI {
+    path: std::path::PathBuf,
+}
 
 fn main() -> Result<()> {
     env_logger::init();
-    let _args = CLI::parse();
-    tui::start()
+    let args = CLI::parse();
+    tui::start(args.path)
 }
