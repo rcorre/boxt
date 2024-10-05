@@ -55,7 +55,7 @@ impl Rect {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Default, Serialize, Deserialize)]
 pub struct Document {
     rect: Vec<Rect>,
 }

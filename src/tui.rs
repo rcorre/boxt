@@ -16,7 +16,9 @@ use ratatui::{
 
 use crate::Document;
 
+#[derive(Default)]
 struct App {
+    cursor: (u16, u16),
     document: Document,
     exit: bool,
 }
@@ -32,6 +34,7 @@ impl App {
 
     fn draw(&self, frame: &mut Frame) {
         frame.render_widget(self, frame.area());
+        frame.set_cursor_position(self.cursor);
     }
 
     fn handle_events(&mut self) -> Result<()> {
@@ -49,6 +52,10 @@ impl App {
     fn handle_key_event(&mut self, key_event: KeyEvent) {
         match key_event.code {
             KeyCode::Char('q') => self.exit = true,
+            KeyCode::Char('w') => self.cursor.1 = self.cursor.1.saturating_sub(1),
+            KeyCode::Char('s') => self.cursor.1 = self.cursor.1.saturating_add(1),
+            KeyCode::Char('a') => self.cursor.0 = self.cursor.0.saturating_sub(1),
+            KeyCode::Char('d') => self.cursor.0 = self.cursor.0.saturating_add(1),
             _ => {}
         }
     }
@@ -85,7 +92,7 @@ pub fn start(document: Document) -> Result<()> {
 
     let app_result = App {
         document,
-        exit: false,
+        ..Default::default()
     }
     .run(terminal);
     ratatui::restore();
@@ -103,7 +110,7 @@ mod tests {
         let document: Document = toml::from_str(&s).unwrap();
         let app = App {
             document,
-            exit: false,
+            ..Default::default()
         };
         let mut buf = Buffer::empty(Rect::new(0, 0, 50, 4));
 
