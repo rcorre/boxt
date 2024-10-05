@@ -36,7 +36,8 @@ impl App {
 
     fn draw(&self, frame: &mut Frame) {
         frame.render_widget(self, frame.area());
-        frame.set_cursor_position((self.cursor_x, self.cursor_y));
+        // +1 to accomodate border size
+        frame.set_cursor_position((self.cursor_x + 1, self.cursor_y + 1));
     }
 
     fn handle_events(&mut self) -> Result<()> {
@@ -54,9 +55,11 @@ impl App {
     fn move_cursor(&mut self, x: i16, y: i16) {
         self.cursor_x = self.cursor_x.saturating_add_signed(x);
         self.cursor_y = self.cursor_y.saturating_add_signed(y);
+        log::debug!("Moved cursor to ({}, {})", self.cursor_x, self.cursor_y);
         if let Some(rect) = &mut self.rect {
             rect.x2 = self.cursor_x;
             rect.y2 = self.cursor_y;
+            log::debug!("Updated rect to {rect:?}");
         }
     }
 
@@ -70,13 +73,13 @@ impl App {
             KeyCode::Char('d') => self.move_cursor(1, 0),
 
             KeyCode::Char('r') => {
-                log::debug!("Adding rect");
                 self.rect = Some(crate::Rect {
                     x1: self.cursor_x,
                     y1: self.cursor_y,
                     x2: 0,
                     y2: 0,
                 });
+                log::debug!("Added rect {:?}", self.rect);
                 self.move_cursor(1, 1);
             }
 
@@ -87,16 +90,16 @@ impl App {
 
 impl Widget for &App {
     fn render(self, area: Rect, buf: &mut Buffer) {
-        let title = Title::from(" Counter App Tutorial ".bold());
+        let title = Title::from("Clart".bold());
         let instructions = Title::from(Line::from(vec![
-            " Decrement ".into(),
-            "<Left>".blue().bold(),
-            " Increment ".into(),
-            "<Right>".blue().bold(),
+            " Move ".into(),
+            "<WASD>".blue().bold(),
+            " Rect ".into(),
+            "<R>".blue().bold(),
             " Quit ".into(),
             "<Q> ".blue().bold(),
         ]));
-        let block = Block::new()
+        let block = Block::bordered()
             .title(title.alignment(Alignment::Center))
             .title(
                 instructions
@@ -130,34 +133,31 @@ pub fn start() -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ratatui::style::Style;
+    use insta::assert_snapshot;
 
-    // #[test]
-    // fn render() {
-    //     let app = App::default();
-    //     let mut buf = Buffer::empty(Rect::new(0, 0, 50, 4));
+    #[test]
+    fn test_render_empty() {
+        let app = App::default();
+        let mut buf = Buffer::empty(Rect::new(0, 0, 50, 4));
 
-    //     app.render(buf.area, &mut buf);
+        app.render(buf.area, &mut buf);
 
-    //     let mut expected = Buffer::with_lines(vec![
-    //         "┏━━━━━━━━━━━━━ Counter App Tutorial ━━━━━━━━━━━━━┓",
-    //         "┃                    Value: 0                    ┃",
-    //         "┃                                                ┃",
-    //         "┗━ Decrement <Left> Increment <Right> Quit <Q> ━━┛",
-    //     ]);
-    //     let title_style = Style::new().bold();
-    //     let counter_style = Style::new().yellow();
-    //     let key_style = Style::new().blue().bold();
-    //     expected.set_style(Rect::new(14, 0, 22, 1), title_style);
-    //     expected.set_style(Rect::new(28, 1, 1, 1), counter_style);
-    //     expected.set_style(Rect::new(13, 3, 6, 1), key_style);
-    //     expected.set_style(Rect::new(30, 3, 7, 1), key_style);
-    //     expected.set_style(Rect::new(43, 3, 4, 1), key_style);
+        let actual = buf
+            .content
+            .chunks(buf.area.width as usize)
+            .map(|line| {
+                line.iter()
+                    .map(|cell| cell.symbol().to_string())
+                    .collect::<Vec<_>>()
+                    .join("")
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
 
-    //     // note ratatui also has an assert_buffer_eq! macro that can be used to
-    //     // compare buffers and display the differences in a more readable way
-    //     assert_eq!(buf, expected);
-    // }
+        // note ratatui also has an assert_buffer_eq! macro that can be used to
+        // compare buffers and display the differences in a more readable way
+        assert_snapshot!(actual);
+    }
 
     // #[test]
     // fn handle_key_event() {

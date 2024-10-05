@@ -1,0 +1,8 @@
+---
+source: src/tui.rs
+expression: actual
+---
+┏━━━━━━━━━━━━━━━━━━━━━Clart━━━━━━━━━━━━━━━━━━━━━━┓
+┃                                                ┃
+┃                                                ┃
+┗━━━━━━━━ Move <WASD> Rect <R> Quit <Q> ━━━━━━━━━┛
