@@ -1,118 +1,80 @@
 use crate::canvas::Canvas;
+use crate::point::Point;
 
-// #[derive(Debug)]
-// struct Line {
-//     x1: u16,
-//     y1: u16,
-//     x2: u16,
-//     y2: u16,
-// }
+#[derive(Debug)]
+struct Line(pub Vec<Point>);
 
-// impl Line {
-//     // +----+
-//     //      |
-//     //      +
-//     pub fn draw(&self, canvas: &mut Canvas) {
-//         let Line { x1, y1, x2, y2 } = *self;
+impl Line {
+    pub fn draw(&self, canvas: &mut Canvas) {
+        const HORIZONTAL: &str = "-";
+        const VERTICAL: &str = "|";
+        const TOP_LEFT: &str = "+";
+        const TOP_RIGHT: &str = "+";
+        const BOTTOM_LEFT: &str = "+";
+        const BOTTOM_RIGHT: &str = "+";
 
-//         const HORIZONTAL: &str = "-";
-//         const VERTICAL: &str = "|";
-//         const TOP_LEFT: &str = "+";
-//         const TOP_RIGHT: &str = "+";
-//         const BOTTOM_LEFT: &str = "+";
-//         const BOTTOM_RIGHT: &str = "+";
+        for [a, b] in self.0.array_windows() {
+            if b.y > a.y {
+                for y in a.y..b.y {
+                    canvas.put(a.x, y, VERTICAL);
+                }
+            } else {
+                for y in b.y..a.y {
+                    canvas.put(b.x, y, VERTICAL);
+                }
+            }
 
-//         let (x1, x2) ==
+            let y = std::cmp::max(a.y, b.y);
+            if b.x > a.x {
+                for x in a.x..b.x {
+                    canvas.put(x, y, HORIZONTAL);
+                }
+            } else {
+                for x in b.x..a.x {
+                    canvas.put(x, y, HORIZONTAL);
+                }
+            }
 
-//         for y in y1..y2 {
-//             canvas.put(x1, y, VERTICAL);
-//             canvas.put(x2, y, VERTICAL);
-//         }
+            canvas.put(std::cmp::min(a.x, b.x), std::cmp::max(a.y, b.y), TOP_LEFT);
+        }
+    }
+}
 
-//         for x in x1..x2 {
-//             canvas.put(x, y1, HORIZONTAL);
-//             canvas.put(x, y2, HORIZONTAL);
-//         }
+#[cfg(test)]
+mod tests {
+    use insta::assert_snapshot;
 
-//         canvas.put(x1, y1, TOP_LEFT);
-//         canvas.put(x2, y1, TOP_RIGHT);
-//         canvas.put(x1, y2, BOTTOM_LEFT);
-//         canvas.put(x2, y2, BOTTOM_RIGHT);
-//     }
-// }
+    use super::*;
 
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
+    #[test]
+    fn test_draw_line_empty() {
+        let mut canvas = Canvas::new(8, 8);
+        let r = Line(vec![]);
+        r.draw(&mut canvas);
+        assert_eq!(canvas.to_string().trim(), "")
+    }
 
-//     #[test]
-//     fn test_draw_rect_0000() {
-//         let mut canvas = Canvas::new(8, 8);
-//         let r = Line {
-//             x1: 0,
-//             y1: 0,
-//             x2: 0,
-//             y2: 0,
-//         };
-//         r.draw(&mut canvas);
-//         assert_eq!(canvas.to_string().trim(), "")
-//     }
+    #[test]
+    fn test_draw_line_one_point() {
+        let mut canvas = Canvas::new(8, 8);
+        let r = Line(vec![Point { x: 1, y: 1 }]);
+        r.draw(&mut canvas);
+        assert_eq!(canvas.to_string().trim(), "")
+    }
 
-//     #[test]
-//     fn test_draw_rect_0011() {
-//         let mut canvas = Canvas::new(2, 2);
-//         let r = Line {
-//             x1: 0,
-//             y1: 0,
-//             x2: 1,
-//             y2: 1,
-//         };
-//         r.draw(&mut canvas);
-//         assert_eq!(
-//             canvas.to_string().trim(),
-//             "\
-// ++
-// ++"
-//         )
-//     }
+    #[test]
+    fn test_draw_line_down_right() {
+        let mut canvas = Canvas::new(8, 8);
+        let r = Line(vec![Point { x: 1, y: 1 }, Point { x: 4, y: 3 }]);
+        r.draw(&mut canvas);
+        assert_snapshot!(canvas.to_string())
+    }
 
-//     #[test]
-//     fn test_draw_rect_0042() {
-//         let mut canvas = Canvas::new(5, 3);
-//         let r = Line {
-//             x1: 0,
-//             y1: 0,
-//             x2: 4,
-//             y2: 2,
-//         };
-//         r.draw(&mut canvas);
-//         assert_eq!(
-//             canvas.to_string().trim(),
-//             "\
-// +---+
-// |   |
-// +---+"
-//         )
-//     }
-
-//     //     #[test]
-//     //     fn test_draw_rect_3154() {
-//     //         let mut canvas = Canvas::new(5, 3);
-//     //         let r = Line {
-//     //             x1: 3,
-//     //             y1: 1,
-//     //             x2: 5,
-//     //             y2: 4,
-//     //         };
-//     //         r.draw(&mut canvas);
-//     //         assert_eq!(
-//     //             canvas.to_string(),
-//     //             "    \
-//     // \n
-//     //    +-+
-//     //    | |
-//     //    | |
-//     //    +-+"
-//     //         )
-//     //     }
-// }
+    #[test]
+    fn test_draw_line_up_left() {
+        let mut canvas = Canvas::new(8, 8);
+        let r = Line(vec![Point { x: 4, y: 3 }, Point { x: 1, y: 1 }]);
+        r.draw(&mut canvas);
+        assert_snapshot!(canvas.to_string())
+    }
+}

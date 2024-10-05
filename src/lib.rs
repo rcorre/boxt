@@ -1,3 +1,4 @@
+#![feature(array_windows)]
 pub mod canvas;
 pub mod line;
 pub mod point;
