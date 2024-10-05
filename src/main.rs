@@ -1,6 +1,6 @@
 use anyhow::Result;
+use boxt::tui;
 use clap::Parser;
-use clart::tui;
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]

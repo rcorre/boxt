@@ -1,3 +1,10 @@
-# Clart
+# Boxt
 
-Clart is a TUI application for drawing box diagrams in the terminal.
+Boxt is a TUI for drawing box diagrams in the terminal.
+
+# Installation
+
+## From Source
+```
+cargo install boxt
+```

@@ -112,7 +112,7 @@ impl App {
 
 impl Widget for &App {
     fn render(self, area: Rect, buf: &mut Buffer) {
-        let title = Title::from("Clart".bold());
+        let title = Title::from("Boxt".bold());
         let instructions = Title::from(Line::from(vec![
             " Move ".into(),
             "<WASD>".blue().bold(),
