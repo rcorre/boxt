@@ -30,6 +30,9 @@ impl Rect {
             return;
         }
 
+        let (x1, x2) = if x1 < x2 { (x1, x2) } else { (x2, x1) };
+        let (y1, y2) = if y1 < y2 { (y1, y2) } else { (y2, y1) };
+
         const TOP_LEFT: &str = "+";
         const TOP_RIGHT: &str = "+";
         const HORIZONTAL: &str = "-";
@@ -83,6 +86,48 @@ mod tests {
     fn test_draw_rect_0042() {
         let mut canvas = Canvas::new(5, 3);
         let r = Rect::new(0, 0, 4, 2);
+        r.draw(&mut canvas);
+        assert_eq!(
+            canvas.to_string().trim(),
+            "\
++---+
+|   |
++---+"
+        )
+    }
+
+    #[test]
+    fn test_draw_rect_4200() {
+        let mut canvas = Canvas::new(5, 3);
+        let r = Rect::new(4, 2, 0, 0);
+        r.draw(&mut canvas);
+        assert_eq!(
+            canvas.to_string().trim(),
+            "\
++---+
+|   |
++---+"
+        )
+    }
+
+    #[test]
+    fn test_draw_rect_0240() {
+        let mut canvas = Canvas::new(5, 3);
+        let r = Rect::new(0, 2, 4, 0);
+        r.draw(&mut canvas);
+        assert_eq!(
+            canvas.to_string().trim(),
+            "\
++---+
+|   |
++---+"
+        )
+    }
+
+    #[test]
+    fn test_draw_rect_4002() {
+        let mut canvas = Canvas::new(5, 3);
+        let r = Rect::new(4, 0, 0, 2);
         r.draw(&mut canvas);
         assert_eq!(
             canvas.to_string().trim(),
