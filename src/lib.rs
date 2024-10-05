@@ -1,5 +1,8 @@
 #![feature(array_windows)]
+#![feature(assert_matches)]
+
 pub mod canvas;
+pub mod config;
 pub mod line;
 pub mod point;
 pub mod rect;
