@@ -33,12 +33,12 @@ impl Rect {
         let (x1, x2) = if x1 < x2 { (x1, x2) } else { (x2, x1) };
         let (y1, y2) = if y1 < y2 { (y1, y2) } else { (y2, y1) };
 
-        const TOP_LEFT: &str = "+";
-        const TOP_RIGHT: &str = "+";
-        const HORIZONTAL: &str = "-";
-        const VERTICAL: &str = "|";
-        const BOTTOM_LEFT: &str = "+";
-        const BOTTOM_RIGHT: &str = "+";
+        const TOP_LEFT: char = '+';
+        const TOP_RIGHT: char = '+';
+        const HORIZONTAL: char = '-';
+        const VERTICAL: char = '|';
+        const BOTTOM_LEFT: char = '+';
+        const BOTTOM_RIGHT: char = '+';
 
         for y in y1..y2 {
             canvas.put(x1, y, VERTICAL);

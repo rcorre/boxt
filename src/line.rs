@@ -6,9 +6,9 @@ pub struct Line(pub Vec<Point>);
 
 impl Line {
     pub fn draw(&self, canvas: &mut Canvas) {
-        const HORIZONTAL: &str = "-";
-        const VERTICAL: &str = "|";
-        const TOP_LEFT: &str = "+";
+        const HORIZONTAL: char = '-';
+        const VERTICAL: char = '|';
+        const TOP_LEFT: char = '+';
 
         for [a, b] in self.0.array_windows() {
             let (a, b) = if b.y > a.y { (a, b) } else { (b, a) };

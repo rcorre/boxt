@@ -1,11 +1,11 @@
-const EMPTY: &str = " ";
+const EMPTY: char = ' ';
 
 #[derive(Default, Clone)]
-pub struct Canvas(Vec<Vec<String>>);
+pub struct Canvas(Vec<Vec<char>>);
 
 impl Canvas {
     pub fn new(size_x: u16, size_y: u16) -> Canvas {
-        Self(vec![vec![EMPTY.into(); size_x as usize]; size_y as usize])
+        Self(vec![vec![EMPTY; size_x as usize]; size_y as usize])
     }
 
     pub fn from_str(s: &str) -> Canvas {
@@ -13,9 +13,8 @@ impl Canvas {
         let v = s
             .lines()
             .map(|l| {
-                // TODO: not grapheme safe
-                let mut v: Vec<String> = l.chars().map(|c| c.to_string()).collect();
-                v.resize(w, EMPTY.into());
+                let mut v: Vec<char> = l.chars().collect();
+                v.resize(w, EMPTY);
                 v
             })
             .collect();
@@ -23,7 +22,7 @@ impl Canvas {
     }
 
     // Set a cell to a string. Expands to accomodate the cell if needed.
-    pub fn put(&mut self, x: u16, y: u16, s: &str) {
+    pub fn put(&mut self, x: u16, y: u16, c: char) {
         let x = x as usize;
         let y = y as usize;
         let size_y = self.0.len();
@@ -39,13 +38,13 @@ impl Canvas {
             }
         }
 
-        self.0[y][x] = s.into();
+        self.0[y][x] = c;
     }
 
     pub fn to_string(&self) -> String {
         self.0
             .iter()
-            .map(|row| row.join(""))
+            .map(|row| row.iter().collect::<String>())
             .collect::<Vec<_>>()
             .join("\n")
     }

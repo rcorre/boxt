@@ -17,7 +17,7 @@ impl Text {
 
     pub fn draw(&self, canvas: &mut Canvas) {
         for (i, c) in self.text.chars().enumerate() {
-            canvas.put(self.start.x + i as u16, self.start.y, &c.to_string());
+            canvas.put(self.start.x + i as u16, self.start.y, c);
         }
     }
 }
