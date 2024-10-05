@@ -14,13 +14,14 @@ use ratatui::{
     DefaultTerminal, Frame,
 };
 
-use crate::Document;
+use crate::canvas::Canvas;
 
 #[derive(Default)]
 struct App {
     cursor: (u16, u16),
-    document: Document,
+    canvas: Canvas,
     exit: bool,
+    rect: Option<crate::Rect>,
 }
 
 impl App {
@@ -49,13 +50,35 @@ impl App {
         Ok(())
     }
 
+    fn move_cursor(&mut self, x: i16, y: i16) {
+        self.cursor.1 = self.cursor.1.saturating_add_signed(y);
+        self.cursor.0 = self.cursor.0.saturating_add_signed(x);
+        if let Some(rect) = &mut self.rect {
+            rect.w = rect.w.saturating_add_signed(x as isize);
+            rect.h = rect.h.saturating_add_signed(y as isize);
+        }
+    }
+
     fn handle_key_event(&mut self, key_event: KeyEvent) {
         match key_event.code {
             KeyCode::Char('q') => self.exit = true,
-            KeyCode::Char('w') => self.cursor.1 = self.cursor.1.saturating_sub(1),
-            KeyCode::Char('s') => self.cursor.1 = self.cursor.1.saturating_add(1),
-            KeyCode::Char('a') => self.cursor.0 = self.cursor.0.saturating_sub(1),
-            KeyCode::Char('d') => self.cursor.0 = self.cursor.0.saturating_add(1),
+
+            KeyCode::Char('w') => self.move_cursor(0, -1),
+            KeyCode::Char('s') => self.move_cursor(0, 1),
+            KeyCode::Char('a') => self.move_cursor(-1, 0),
+            KeyCode::Char('d') => self.move_cursor(1, 0),
+
+            KeyCode::Char('r') => {
+                log::debug!("Adding rect");
+                self.rect = Some(crate::Rect {
+                    x: self.cursor.0 as usize,
+                    y: self.cursor.1 as usize,
+                    w: 0,
+                    h: 0,
+                });
+                self.move_cursor(1, 1);
+            }
+
             _ => {}
         }
     }
@@ -72,7 +95,7 @@ impl Widget for &App {
             " Quit ".into(),
             "<Q> ".blue().bold(),
         ]));
-        let block = Block::bordered()
+        let block = Block::new()
             .title(title.alignment(Alignment::Center))
             .title(
                 instructions
@@ -81,20 +104,24 @@ impl Widget for &App {
             )
             .border_set(border::THICK);
 
-        let counter_text = Text::raw(self.document.to_string());
-        Paragraph::new(counter_text).block(block).render(area, buf);
+        // TODO: have separate scratch layer
+        let mut canvas = self.canvas.clone();
+
+        if let Some(rect) = &self.rect {
+            log::debug!("Drawing rect: {rect:?}");
+            rect.draw(&mut canvas);
+        }
+
+        let text = Text::raw(canvas.to_string());
+        Paragraph::new(text).block(block).render(area, buf);
     }
 }
 
-pub fn start(document: Document) -> Result<()> {
+pub fn start() -> Result<()> {
     let mut terminal = ratatui::init();
     terminal.clear()?;
 
-    let app_result = App {
-        document,
-        ..Default::default()
-    }
-    .run(terminal);
+    let app_result = App::default().run(terminal);
     ratatui::restore();
     app_result
 }
@@ -106,12 +133,7 @@ mod tests {
 
     #[test]
     fn render() {
-        let s = std::fs::read_to_string("examples/simple.toml").unwrap();
-        let document: Document = toml::from_str(&s).unwrap();
-        let app = App {
-            document,
-            ..Default::default()
-        };
+        let app = App::default();
         let mut buf = Buffer::empty(Rect::new(0, 0, 50, 4));
 
         app.render(buf.area, &mut buf);
