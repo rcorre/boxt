@@ -221,7 +221,15 @@ impl App {
             Action::TextAddLine => todo!(),
             Action::Delete => {
                 log::debug!("Deleting char at: {:?}", self.cursor);
-                self.canvas.put(self.cursor.x, self.cursor.y, ' ');
+                self.canvas.clear(self.cursor);
+            }
+            Action::Undo => {
+                log::debug!("Undo");
+                self.canvas.undo();
+            }
+            Action::Redo => {
+                log::debug!("Redo");
+                // self.canvas.redo();
             }
         }
         Ok(())

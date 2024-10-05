@@ -23,6 +23,8 @@ pub enum Action {
     TextAddLine,
     EnterMode(EnterMode),
     Delete,
+    Undo,
+    Redo,
 }
 
 #[derive(Debug, Deserialize)]
@@ -70,6 +72,8 @@ impl Default for BindConfig {
                 ("q".to_string(), Action::Quit),
                 ("enter".to_string(), Action::Confirm),
                 ("esc".to_string(), Action::Cancel),
+                ("u".to_string(), Action::Undo),
+                ("U".to_string(), Action::Redo),
             ]
             .into(),
         )

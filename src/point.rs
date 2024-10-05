@@ -1,4 +1,5 @@
 #[derive(Default, Debug, Clone, Copy)]
+#[cfg_attr(test, derive(PartialEq))]
 pub struct Point {
     pub x: u16,
     pub y: u16,
