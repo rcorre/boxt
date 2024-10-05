@@ -52,6 +52,12 @@ impl App {
         Ok(())
     }
 
+    fn warp_cursor(&mut self, x: u16, y: u16) {
+        self.cursor_x = x;
+        self.cursor_y = y;
+        log::debug!("Moved cursor to ({}, {})", self.cursor_x, self.cursor_y);
+    }
+
     fn move_cursor(&mut self, x: i16, y: i16) {
         self.cursor_x = self.cursor_x.saturating_add_signed(x);
         self.cursor_y = self.cursor_y.saturating_add_signed(y);
@@ -63,8 +69,9 @@ impl App {
         }
     }
 
-    fn handle_key_event(&mut self, key_event: KeyEvent) {
-        match key_event.code {
+    fn handle_key_event(&mut self, key: KeyEvent) {
+        log::trace!("Handling key {:?}", key);
+        match key.code {
             KeyCode::Char('q') => self.exit = true,
 
             KeyCode::Char('w') => self.move_cursor(0, -1),
@@ -81,6 +88,21 @@ impl App {
                 });
                 log::debug!("Added rect {:?}", self.rect);
                 self.move_cursor(1, 1);
+            }
+
+            KeyCode::Enter => {
+                if let Some(rect) = &self.rect {
+                    log::debug!("Confirming rect {:?}", self.rect);
+                    rect.draw(&mut self.canvas);
+                    self.rect = None;
+                }
+            }
+
+            KeyCode::Esc => {
+                if let Some(rect) = self.rect.take() {
+                    log::debug!("Cancelling rect {:?}", self.rect);
+                    self.warp_cursor(rect.x1, rect.y1);
+                }
             }
 
             _ => {}
@@ -135,15 +157,8 @@ mod tests {
     use super::*;
     use insta::assert_snapshot;
 
-    #[test]
-    fn test_render_empty() {
-        let app = App::default();
-        let mut buf = Buffer::empty(Rect::new(0, 0, 50, 4));
-
-        app.render(buf.area, &mut buf);
-
-        let actual = buf
-            .content
+    fn buf_string(buf: &Buffer) -> String {
+        buf.content
             .chunks(buf.area.width as usize)
             .map(|line| {
                 line.iter()
@@ -152,14 +167,65 @@ mod tests {
                     .join("")
             })
             .collect::<Vec<_>>()
-            .join("\n");
-
-        // note ratatui also has an assert_buffer_eq! macro that can be used to
-        // compare buffers and display the differences in a more readable way
-        assert_snapshot!(actual);
+            .join("\n")
     }
 
-    // #[test]
+    #[test]
+    fn test_render_empty() {
+        let app = App::default();
+        let mut buf = Buffer::empty(Rect::new(0, 0, 32, 8));
+
+        app.render(buf.area, &mut buf);
+
+        assert_snapshot!(buf_string(&buf));
+    }
+
+    #[test]
+    fn test_draw_rect() {
+        let mut app = App::default();
+        let mut buf = Buffer::empty(Rect::new(0, 0, 32, 8));
+
+        // Draw one rect and confirm it
+        app.handle_key_event(KeyCode::Char('r').into());
+        app.handle_key_event(KeyCode::Char('s').into());
+        app.handle_key_event(KeyCode::Char('d').into());
+        app.handle_key_event(KeyCode::Enter.into());
+
+        // Start drawing another rect
+        app.handle_key_event(KeyCode::Char('d').into());
+        app.handle_key_event(KeyCode::Char('d').into());
+        app.handle_key_event(KeyCode::Char('r').into());
+        app.handle_key_event(KeyCode::Char('s').into());
+        app.handle_key_event(KeyCode::Char('d').into());
+
+        app.render(buf.area, &mut buf);
+
+        assert_snapshot!(buf_string(&buf));
+    }
+
+    #[test]
+    fn test_cancel_rect() {
+        let mut app = App::default();
+        let mut buf = Buffer::empty(Rect::new(0, 0, 32, 8));
+
+        // Draw one rect and cancel it
+        app.handle_key_event(KeyCode::Char('r').into());
+        app.handle_key_event(KeyCode::Char('s').into());
+        app.handle_key_event(KeyCode::Char('d').into());
+        app.handle_key_event(KeyCode::Esc.into());
+
+        // Start drawing another rect
+        app.handle_key_event(KeyCode::Char('d').into());
+        app.handle_key_event(KeyCode::Char('d').into());
+        app.handle_key_event(KeyCode::Char('r').into());
+        app.handle_key_event(KeyCode::Char('s').into());
+        app.handle_key_event(KeyCode::Char('d').into());
+
+        app.render(buf.area, &mut buf);
+
+        assert_snapshot!(buf_string(&buf));
+    }
+
     // fn handle_key_event() {
     //     let mut app = App::default();
     //     app.handle_key_event(KeyCode::Right.into());

@@ -3,9 +3,9 @@ source: src/tui.rs
 expression: buf_string(&buf)
 ---
 ┏━━━━━━━━━━━━Clart━━━━━━━━━━━━━┓
-┃                              ┃
-┃                              ┃
-┃                              ┃
+┃  +-+                         ┃
+┃  | |                         ┃
+┃  +-+                         ┃
 ┃                              ┃
 ┃                              ┃
 ┃                              ┃
