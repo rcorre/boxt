@@ -2,42 +2,32 @@ use crate::canvas::Canvas;
 use crate::point::Point;
 
 #[derive(Debug)]
-struct Line(pub Vec<Point>);
+pub struct Line(pub Vec<Point>);
 
 impl Line {
     pub fn draw(&self, canvas: &mut Canvas) {
         const HORIZONTAL: &str = "-";
         const VERTICAL: &str = "|";
         const TOP_LEFT: &str = "+";
-        const TOP_RIGHT: &str = "+";
-        const BOTTOM_LEFT: &str = "+";
-        const BOTTOM_RIGHT: &str = "+";
 
         for [a, b] in self.0.array_windows() {
-            if b.y > a.y {
-                for y in a.y..b.y {
-                    canvas.put(a.x, y, VERTICAL);
-                }
-            } else {
-                for y in b.y..a.y {
-                    canvas.put(b.x, y, VERTICAL);
-                }
+            let (a, b) = if b.y > a.y { (a, b) } else { (b, a) };
+            for y in a.y..b.y {
+                canvas.put(a.x, y, VERTICAL);
             }
-
-            let y = std::cmp::max(a.y, b.y);
-            if b.x > a.x {
+            if a.x < b.x {
                 for x in a.x..b.x {
-                    canvas.put(x, y, HORIZONTAL);
+                    canvas.put(x, b.y, HORIZONTAL);
                 }
             } else {
                 for x in b.x..a.x {
-                    canvas.put(x, y, HORIZONTAL);
+                    canvas.put(x, b.y, HORIZONTAL);
                 }
             }
 
             canvas.put(a.x, a.y, TOP_LEFT);
+            canvas.put(a.x, b.y, TOP_LEFT);
             canvas.put(b.x, b.y, TOP_LEFT);
-            canvas.put(std::cmp::min(a.x, b.x), std::cmp::max(a.y, b.y), TOP_LEFT);
         }
     }
 }

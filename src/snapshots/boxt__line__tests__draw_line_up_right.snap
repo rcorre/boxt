@@ -1,9 +1,8 @@
 ---
 source: src/line.rs
-assertion_line: 80
 expression: canvas.to_string()
 ---
         
     +   
     |   
- +--
+ +--+
