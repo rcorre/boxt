@@ -35,6 +35,8 @@ impl Line {
                 }
             }
 
+            canvas.put(a.x, a.y, TOP_LEFT);
+            canvas.put(b.x, b.y, TOP_LEFT);
             canvas.put(std::cmp::min(a.x, b.x), std::cmp::max(a.y, b.y), TOP_LEFT);
         }
     }
@@ -71,9 +73,25 @@ mod tests {
     }
 
     #[test]
+    fn test_draw_line_up_right() {
+        let mut canvas = Canvas::new(8, 8);
+        let r = Line(vec![Point { x: 1, y: 3 }, Point { x: 4, y: 1 }]);
+        r.draw(&mut canvas);
+        assert_snapshot!(canvas.to_string())
+    }
+
+    #[test]
     fn test_draw_line_up_left() {
         let mut canvas = Canvas::new(8, 8);
         let r = Line(vec![Point { x: 4, y: 3 }, Point { x: 1, y: 1 }]);
+        r.draw(&mut canvas);
+        assert_snapshot!(canvas.to_string())
+    }
+
+    #[test]
+    fn test_draw_line_down_left() {
+        let mut canvas = Canvas::new(8, 8);
+        let r = Line(vec![Point { x: 4, y: 1 }, Point { x: 1, y: 3 }]);
         r.draw(&mut canvas);
         assert_snapshot!(canvas.to_string())
     }
