@@ -16,13 +16,20 @@ use ratatui::{
 
 use crate::canvas::Canvas;
 
+#[derive(Default, Debug)]
+enum Mode {
+    #[default]
+    Normal,
+    Rect(crate::Rect),
+}
+
 #[derive(Default)]
 struct App {
     cursor_x: u16,
     cursor_y: u16,
     canvas: Canvas,
     exit: bool,
-    rect: Option<crate::Rect>,
+    mode: Mode,
 }
 
 impl App {
@@ -62,10 +69,13 @@ impl App {
         self.cursor_x = self.cursor_x.saturating_add_signed(x);
         self.cursor_y = self.cursor_y.saturating_add_signed(y);
         log::debug!("Moved cursor to ({}, {})", self.cursor_x, self.cursor_y);
-        if let Some(rect) = &mut self.rect {
-            rect.x2 = self.cursor_x;
-            rect.y2 = self.cursor_y;
-            log::debug!("Updated rect to {rect:?}");
+        match &mut self.mode {
+            Mode::Normal => {}
+            Mode::Rect(r) => {
+                r.x2 = self.cursor_x;
+                r.y2 = self.cursor_y;
+                log::debug!("Updated rect to {r:?}");
+            }
         }
     }
 
@@ -80,30 +90,32 @@ impl App {
             KeyCode::Char('d') => self.move_cursor(1, 0),
 
             KeyCode::Char('r') => {
-                self.rect = Some(crate::Rect {
+                self.mode = Mode::Rect(crate::Rect {
                     x1: self.cursor_x,
                     y1: self.cursor_y,
                     x2: 0,
                     y2: 0,
                 });
-                log::debug!("Added rect {:?}", self.rect);
                 self.move_cursor(1, 1);
+                log::debug!("Set mode: {:?}", self.mode);
             }
 
-            KeyCode::Enter => {
-                if let Some(rect) = &self.rect {
-                    log::debug!("Confirming rect {:?}", self.rect);
-                    rect.draw(&mut self.canvas);
-                    self.rect = None;
+            KeyCode::Enter => match &self.mode {
+                Mode::Normal => {}
+                Mode::Rect(r) => {
+                    log::debug!("Confirming rect {:?}", r);
+                    r.draw(&mut self.canvas);
+                    self.mode = Mode::Normal;
                 }
-            }
+            },
 
-            KeyCode::Esc => {
-                if let Some(rect) = self.rect.take() {
-                    log::debug!("Cancelling rect {:?}", self.rect);
-                    self.warp_cursor(rect.x1, rect.y1);
+            KeyCode::Esc => match &self.mode {
+                Mode::Normal => {}
+                Mode::Rect(r) => {
+                    log::debug!("Cancelling mode: {:?}", self.mode);
+                    self.warp_cursor(r.x1, r.y1);
                 }
-            }
+            },
 
             _ => {}
         }
@@ -133,9 +145,12 @@ impl Widget for &App {
         // TODO: have separate scratch layer
         let mut canvas = self.canvas.clone();
 
-        if let Some(rect) = &self.rect {
-            log::debug!("Drawing rect: {rect:?}");
-            rect.draw(&mut canvas);
+        match &self.mode {
+            Mode::Normal => {}
+            Mode::Rect(r) => {
+                log::debug!("Drawing rect: {r:?}");
+                r.draw(&mut canvas);
+            }
         }
 
         let text = Text::raw(canvas.to_string());
