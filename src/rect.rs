@@ -1,4 +1,3 @@
-use crate::canvas::Canvas;
 use crate::edit::Edit;
 use crate::point::Point;
 
@@ -50,7 +49,7 @@ impl Rect {
         bottom[0] = BOTTOM_LEFT;
         bottom[w] = BOTTOM_RIGHT;
 
-        let side = vec![VERTICAL; h];
+        let side = vec![VERTICAL; h.saturating_sub(1)];
 
         vec![
             Edit::Right {
@@ -71,48 +70,14 @@ impl Rect {
             },
         ]
     }
-
-    pub fn draw(&self, canvas: &mut Canvas) {
-        let Rect {
-            top_left: Point { x: x1, y: y1 },
-            bottom_right: Point { x: x2, y: y2 },
-        } = *self;
-
-        if x1 == x2 || y1 == y2 {
-            log::warn!("Zero-area rect");
-            return;
-        }
-
-        let (x1, x2) = if x1 < x2 { (x1, x2) } else { (x2, x1) };
-        let (y1, y2) = if y1 < y2 { (y1, y2) } else { (y2, y1) };
-
-        const TOP_LEFT: char = '+';
-        const TOP_RIGHT: char = '+';
-        const HORIZONTAL: char = '-';
-        const VERTICAL: char = '|';
-        const BOTTOM_LEFT: char = '+';
-        const BOTTOM_RIGHT: char = '+';
-
-        for y in y1..y2 {
-            canvas.put(x1, y, VERTICAL);
-            canvas.put(x2, y, VERTICAL);
-        }
-
-        for x in x1..x2 {
-            canvas.put(x, y1, HORIZONTAL);
-            canvas.put(x, y2, HORIZONTAL);
-        }
-
-        canvas.put(x1, y1, TOP_LEFT);
-        canvas.put(x2, y1, TOP_RIGHT);
-        canvas.put(x1, y2, BOTTOM_LEFT);
-        canvas.put(x2, y2, BOTTOM_RIGHT);
-    }
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::canvas::Canvas;
+
     use super::*;
+    use pretty_assertions::assert_eq;
 
     #[test]
     fn test_draw_rect_0000() {

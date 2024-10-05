@@ -74,9 +74,9 @@ impl Canvas {
 
 #[cfg(test)]
 mod tests {
-    use crate::point::Point;
-
     use super::*;
+    use crate::point::Point;
+    use pretty_assertions::assert_eq;
 
     #[test]
     fn test_canvas_edit() {
@@ -89,7 +89,7 @@ mod tests {
                     chars: vec!['-', '-', '-', '+'],
                 },
                 Edit::Down {
-                    start: Point { x: 5, y: 1 },
+                    start: Point { x: 5, y: 2 },
                     chars: vec!['|', '|'],
                 },
             ]

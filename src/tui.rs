@@ -186,17 +186,17 @@ impl App {
                 Mode::Normal => {}
                 Mode::Rect(r) => {
                     log::debug!("Confirming rect {r:?}");
-                    r.draw(&mut self.canvas);
+                    self.canvas.edit(r.edits().into_iter());
                     self.mode = Mode::Normal;
                 }
                 Mode::Line(l) => {
                     log::debug!("Confirming line {l:?}");
-                    l.draw(&mut self.canvas);
+                    self.canvas.edit(l.edits().into_iter());
                     self.mode = Mode::Normal;
                 }
                 Mode::Text(t) => {
                     log::debug!("Confirming text {t:?}");
-                    t.draw(&mut self.canvas);
+                    self.canvas.edit(t.edits().into_iter());
                     self.mode = Mode::Normal;
                 }
             },
@@ -255,15 +255,15 @@ impl Widget for &App {
             Mode::Normal => {}
             Mode::Rect(r) => {
                 log::debug!("Drawing rect: {r:?}");
-                r.draw(&mut canvas);
+                canvas.edit(r.edits().into_iter());
             }
             Mode::Line(l) => {
                 log::debug!("Drawing line: {l:?}");
-                l.draw(&mut canvas);
+                canvas.edit(l.edits().into_iter());
             }
             Mode::Text(t) => {
                 log::debug!("Drawing text: {t:?}");
-                t.draw(&mut canvas);
+                canvas.edit(t.edits().into_iter());
             }
         }
 

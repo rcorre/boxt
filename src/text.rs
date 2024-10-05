@@ -1,4 +1,4 @@
-use crate::canvas::Canvas;
+use crate::edit::Edit;
 use crate::point::Point;
 
 #[derive(Debug)]
@@ -15,22 +15,32 @@ impl Text {
         }
     }
 
-    pub fn draw(&self, canvas: &mut Canvas) {
-        for (i, c) in self.text.chars().enumerate() {
-            canvas.put(self.start.x + i as u16, self.start.y, c);
-        }
+    pub fn edits(&self) -> Vec<Edit> {
+        self.text
+            .lines()
+            .enumerate()
+            .map(|(i, line)| Edit::Right {
+                start: Point {
+                    x: self.start.x,
+                    y: self.start.y + i as u16,
+                },
+                chars: line.chars().collect(),
+            })
+            .collect()
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::canvas::Canvas;
+
     use super::*;
 
     #[test]
     fn test_draw_text_empty() {
         let mut canvas = Canvas::new(8, 8);
         let t = Text::new(0, 0, "");
-        t.draw(&mut canvas);
+        canvas.edit(t.edits().into_iter());
         assert_eq!(canvas.to_string().trim(), "")
     }
 
@@ -38,11 +48,25 @@ mod tests {
     fn test_draw_text() {
         let mut canvas = Canvas::new(2, 2);
         let t = Text::new(2, 1, "foo");
-        t.draw(&mut canvas);
+        canvas.edit(t.edits().into_iter());
         assert_eq!(
             canvas.to_string().trim(),
             "\
   foo"
+        )
+    }
+
+    #[test]
+    fn test_draw_text_multiline() {
+        let mut canvas = Canvas::new(2, 2);
+        let t = Text::new(2, 1, "foo\nbar\nbaz");
+        canvas.edit(t.edits().into_iter());
+        assert_eq!(
+            canvas.to_string().trim(),
+            "\
+  foo
+  bar
+  baz"
         )
     }
 }
