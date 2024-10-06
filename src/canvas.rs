@@ -93,6 +93,7 @@ impl Canvas {
         let undo = self.apply_edits(edits, true);
         log::debug!("Pushing undo: {undo:?}");
         self.undo.push(undo);
+        self.redo.clear();
     }
 
     pub fn undo(&mut self) {
@@ -258,6 +259,64 @@ mod tests {
 
         c.redo();
         assert_eq!(c.to_string(), state1);
+
+        c.redo();
+        assert_eq!(c.to_string(), state2);
+    }
+
+    #[test]
+    fn test_canvas_edit_clears_redo() {
+        let _ = env_logger::builder().is_test(true).try_init();
+        let mut c = Canvas::new(4, 4);
+
+        let state0 = c.to_string();
+        let state1 = "      
+  ---+
+     |
+     |";
+        let state2 = "       
+  +    
+  | ---
+       ";
+
+        c.edit(
+            vec![
+                Edit::Right {
+                    start: Point { x: 2, y: 1 },
+                    chars: vec!['-', '-', '-', '+'],
+                },
+                Edit::Down {
+                    start: Point { x: 5, y: 2 },
+                    chars: vec!['|', '|'],
+                },
+            ]
+            .into_iter(),
+        );
+        assert_eq!(c.to_string(), state1);
+
+        c.undo();
+        assert_eq!(c.to_string(), state0);
+
+        c.edit(
+            vec![
+                Edit::Down {
+                    start: Point { x: 2, y: 1 },
+                    chars: vec!['+', '|'],
+                },
+                Edit::Right {
+                    start: Point { x: 4, y: 2 },
+                    chars: vec!['-', '-', '-'],
+                },
+            ]
+            .into_iter(),
+        );
+        assert_eq!(c.to_string(), state2);
+
+        c.redo();
+        assert_eq!(c.to_string(), state2);
+
+        c.undo();
+        assert_eq!(c.to_string(), state0);
 
         c.redo();
         assert_eq!(c.to_string(), state2);
