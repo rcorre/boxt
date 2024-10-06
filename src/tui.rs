@@ -34,6 +34,8 @@ struct App {
     exit: bool,
     mode: Mode,
     path: std::path::PathBuf,
+    undo_cursor_pos: Vec<Point>,
+    redo_cursor_pos: Vec<Point>,
 }
 
 impl App {
@@ -187,16 +189,21 @@ impl App {
                 Mode::Rect(r) => {
                     log::debug!("Confirming rect {r:?}");
                     self.canvas.edit(r.edits().into_iter());
+                    self.undo_cursor_pos.push(r.top_left);
                     self.mode = Mode::Normal;
                 }
                 Mode::Line(l) => {
                     log::debug!("Confirming line {l:?}");
                     self.canvas.edit(l.edits().into_iter());
+                    if let Some(point) = l.0.first() {
+                        self.undo_cursor_pos.push(*point);
+                    }
                     self.mode = Mode::Normal;
                 }
                 Mode::Text(t) => {
                     log::debug!("Confirming text {t:?}");
                     self.canvas.edit(t.edits().into_iter());
+                    self.undo_cursor_pos.push(t.start);
                     self.mode = Mode::Normal;
                 }
             },
@@ -226,10 +233,20 @@ impl App {
             Action::Undo => {
                 log::debug!("Undo");
                 self.canvas.undo();
+                if let Some(pos) = self.undo_cursor_pos.pop() {
+                    log::debug!("Restoring cursor to {pos:?}");
+                    self.redo_cursor_pos.push(self.cursor);
+                    self.cursor = pos;
+                }
             }
             Action::Redo => {
                 log::debug!("Redo");
                 self.canvas.redo();
+                if let Some(pos) = self.redo_cursor_pos.pop() {
+                    log::debug!("Restoring cursor to {pos:?}");
+                    self.undo_cursor_pos.push(self.cursor);
+                    self.cursor = pos;
+                }
             }
         }
         Ok(())
