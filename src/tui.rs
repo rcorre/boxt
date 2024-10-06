@@ -185,6 +185,14 @@ impl App {
                 _ => {}
             },
 
+            Action::LineMirror => match &mut self.mode {
+                Mode::Line(l) => {
+                    log::debug!("Mirroring line: {l:?}");
+                    l.mirror = !l.mirror;
+                }
+                _ => {}
+            },
+
             Action::Confirm => match &self.mode {
                 Mode::Normal => {}
                 Mode::Rect(r) => {

@@ -20,6 +20,7 @@ pub enum Action {
     Confirm,
     Cancel,
     LineAddPoint,
+    LineMirror,
     TextAddLine,
     EnterMode(EnterMode),
     Delete,
@@ -66,6 +67,7 @@ impl Default for BindConfig {
                 ("l".to_string(), Action::EnterMode(EnterMode::Line)),
                 // line
                 (" ".to_string(), Action::LineAddPoint),
+                ("m".to_string(), Action::LineMirror),
                 // general
                 ("x".to_string(), Action::Delete),
                 ("C-s".to_string(), Action::Save),

@@ -6,7 +6,7 @@ expression: buf_string(&buf)
 ┃+      +                      ┃
 ┃|      |                      ┃
 ┃|    +-+                      ┃
-┃+-+  |                        ┃
-┃     +-+                      ┃
+┃+-+    |                      ┃
+┃       +                      ┃
 ┃                              ┃
 ┗ Move <WASD> Rect <R> Quit <Q>┛

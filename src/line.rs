@@ -5,48 +5,59 @@ use crate::point::Point;
 pub struct Line {
     pub start: Point,
     pub end: Point,
+    pub mirror: bool,
 }
 
 impl Line {
+    const HORIZONTAL: char = '-';
+    const VERTICAL: char = '|';
+    const CORNER: char = '+';
+
     pub fn new(start: Point, end: Point) -> Self {
-        Self { start, end }
+        Self {
+            start,
+            end,
+            mirror: false,
+        }
+    }
+
+    fn line(char: char, len: usize) -> Vec<char> {
+        let mut chars = vec![char; len + 1];
+        chars[0] = Self::CORNER;
+        chars[len] = Self::CORNER;
+        chars
+    }
+
+    fn vert(a: Point, b: Point) -> Edit {
+        let dy = b.y.abs_diff(a.y) as usize;
+        Edit::Down {
+            start: Point {
+                x: a.x,
+                y: std::cmp::min(a.y, b.y),
+            },
+            chars: Self::line(Self::VERTICAL, dy),
+        }
+    }
+
+    fn horiz(a: Point, b: Point) -> Edit {
+        let dx = b.x.abs_diff(a.x) as usize;
+        Edit::Right {
+            start: Point {
+                x: std::cmp::min(a.x, b.x),
+                y: a.y,
+            },
+            chars: Self::line(Self::HORIZONTAL, dx),
+        }
     }
 
     pub fn edits(&self) -> Vec<Edit> {
-        const HORIZONTAL: char = '-';
-        const VERTICAL: char = '|';
-        const CORNER: char = '+';
-
-        let mut edits = vec![];
-
         let (a, b) = (self.start, self.end);
-        // Start with the uppermost point and go down.
-        let (a, b) = if b.y > a.y { (a, b) } else { (b, a) };
 
-        let dy = (b.y - a.y) as usize;
-        let mut chars = vec![VERTICAL; dy + 1];
-        chars[0] = CORNER;
-        chars[dy] = CORNER;
-        edits.push(Edit::Down {
-            start: a.clone(),
-            chars,
-        });
-
-        // Now move horizontally
-        let dx = b.x.abs_diff(a.x) as usize;
-        let mut chars = vec![HORIZONTAL; dx + 1];
-        chars[0] = CORNER;
-        chars[dx] = CORNER;
-
-        edits.push(Edit::Right {
-            start: Point {
-                x: std::cmp::min(a.x, b.x),
-                y: b.y,
-            },
-            chars,
-        });
-
-        edits
+        if self.mirror {
+            vec![Self::horiz(a, b), Self::vert(Point { y: a.y, x: b.x }, b)]
+        } else {
+            vec![Self::vert(a, b), Self::horiz(Point { x: a.x, y: b.y }, b)]
+        }
     }
 }
 
@@ -93,6 +104,42 @@ mod tests {
     fn test_draw_line_down_left() {
         let mut canvas = Canvas::new(8, 8);
         let r = Line::new(Point { x: 4, y: 1 }, Point { x: 1, y: 3 });
+        canvas.edit(r.edits().into_iter());
+        assert_snapshot!(canvas.to_string())
+    }
+
+    #[test]
+    fn test_draw_line_down_right_mirror() {
+        let mut canvas = Canvas::new(8, 8);
+        let mut r = Line::new(Point { x: 1, y: 1 }, Point { x: 4, y: 3 });
+        r.mirror = true;
+        canvas.edit(r.edits().into_iter());
+        assert_snapshot!(canvas.to_string())
+    }
+
+    #[test]
+    fn test_draw_line_up_right_mirror() {
+        let mut canvas = Canvas::new(8, 8);
+        let mut r = Line::new(Point { x: 1, y: 3 }, Point { x: 4, y: 1 });
+        r.mirror = true;
+        canvas.edit(r.edits().into_iter());
+        assert_snapshot!(canvas.to_string())
+    }
+
+    #[test]
+    fn test_draw_line_up_left_mirror() {
+        let mut canvas = Canvas::new(8, 8);
+        let mut r = Line::new(Point { x: 4, y: 3 }, Point { x: 1, y: 1 });
+        r.mirror = true;
+        canvas.edit(r.edits().into_iter());
+        assert_snapshot!(canvas.to_string())
+    }
+
+    #[test]
+    fn test_draw_line_down_left_mirror() {
+        let mut canvas = Canvas::new(8, 8);
+        let mut r = Line::new(Point { x: 4, y: 1 }, Point { x: 1, y: 3 });
+        r.mirror = true;
         canvas.edit(r.edits().into_iter());
         assert_snapshot!(canvas.to_string())
     }
