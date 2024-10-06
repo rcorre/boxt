@@ -102,11 +102,7 @@ impl App {
                 log::debug!("Updated rect to {r:?}");
             }
             Mode::Line(l) => {
-                let Some(last) = l.0.last_mut() else {
-                    log::warn!("Zero-point line");
-                    return;
-                };
-                *last = self.cursor;
+                l.end = self.cursor;
                 log::debug!("Updated line to {l:?}");
             }
             Mode::Text(_) => {}
@@ -165,7 +161,7 @@ impl App {
                     log::debug!("Set mode: {:?}", self.mode);
                 }
                 EnterMode::Line => {
-                    self.mode = Mode::Line(Line(vec![self.cursor; 2]));
+                    self.mode = Mode::Line(Line::new(self.cursor, self.cursor));
                     log::debug!("Set mode: {:?}", self.mode);
                 }
                 EnterMode::Text => {
@@ -180,7 +176,11 @@ impl App {
             Action::LineAddPoint => match &mut self.mode {
                 Mode::Line(l) => {
                     log::debug!("Adding point to line: {l:?}");
-                    l.0.push(self.cursor);
+                    self.canvas.edit(l.edits().into_iter());
+                    self.undo_cursor_pos.push(l.start);
+                    self.redo_cursor_pos.clear();
+                    self.last_edit_cursor_pos = self.cursor;
+                    self.mode = Mode::Line(Line::new(l.end, l.end));
                 }
                 _ => {}
             },
@@ -198,9 +198,7 @@ impl App {
                 Mode::Line(l) => {
                     log::debug!("Confirming line {l:?}");
                     self.canvas.edit(l.edits().into_iter());
-                    if let Some(point) = l.0.first() {
-                        self.undo_cursor_pos.push(*point);
-                    }
+                    self.undo_cursor_pos.push(l.start);
                     self.redo_cursor_pos.clear();
                     self.last_edit_cursor_pos = self.cursor;
                     self.mode = Mode::Normal;
@@ -223,9 +221,7 @@ impl App {
                         self.warp_cursor(&r.top_left);
                     }
                     Mode::Line(l) => {
-                        if let Some(p) = l.0.first() {
-                            self.warp_cursor(p);
-                        }
+                        self.warp_cursor(&l.start);
                     }
                     Mode::Text(t) => {
                         self.warp_cursor(&t.start);
