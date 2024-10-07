@@ -86,11 +86,6 @@ impl App {
         Ok(())
     }
 
-    fn warp_cursor(&mut self, p: &Point) {
-        self.cursor = *p;
-        log::debug!("Moved cursor to {p:?}");
-    }
-
     fn move_cursor(&mut self, x: i16, y: i16) {
         self.cursor.x = self.cursor.x.saturating_add_signed(x);
         self.cursor.y = self.cursor.y.saturating_add_signed(y);
@@ -126,6 +121,13 @@ impl App {
                     log::debug!("Appending {c} to {s:?}");
                     s.text.push(c);
                     self.move_cursor(1, 0);
+                    return Ok(());
+                }
+                KeyCode::Enter if key.modifiers.is_empty() => {
+                    log::debug!("Appending newline to {s:?}");
+                    let len = s.text.lines().last().map(|l| l.len()).unwrap_or(0);
+                    s.text.push('\n');
+                    self.move_cursor(-(len as i16), 1);
                     return Ok(());
                 }
                 _ => {}
@@ -193,7 +195,7 @@ impl App {
                 _ => {}
             },
 
-            Action::Confirm => match &self.mode {
+            Action::ExitMode => match &self.mode {
                 Mode::Normal => {}
                 Mode::Rect(r) => {
                     log::debug!("Confirming rect {r:?}");
@@ -221,21 +223,6 @@ impl App {
                 }
             },
 
-            Action::Cancel => {
-                log::debug!("Cancelling mode: {:?}", self.mode);
-                match std::mem::take(&mut self.mode) {
-                    Mode::Normal => {}
-                    Mode::Rect(r) => {
-                        self.warp_cursor(&r.top_left);
-                    }
-                    Mode::Line(l) => {
-                        self.warp_cursor(&l.start);
-                    }
-                    Mode::Text(t) => {
-                        self.warp_cursor(&t.start);
-                    }
-                }
-            }
             Action::TextAddLine => todo!(),
             Action::Delete => {
                 log::debug!("Deleting char at: {:?}", self.cursor);
@@ -365,30 +352,6 @@ mod tests {
         app.handle_key_event(KeyCode::Char('r').into()).unwrap();
         app.handle_key_event(KeyCode::Char('s').into()).unwrap();
         app.handle_key_event(KeyCode::Char('d').into()).unwrap();
-        app.handle_key_event(KeyCode::Enter.into()).unwrap();
-
-        // Start drawing another rect
-        app.handle_key_event(KeyCode::Char('d').into()).unwrap();
-        app.handle_key_event(KeyCode::Char('d').into()).unwrap();
-        app.handle_key_event(KeyCode::Char('r').into()).unwrap();
-        app.handle_key_event(KeyCode::Char('s').into()).unwrap();
-        app.handle_key_event(KeyCode::Char('d').into()).unwrap();
-
-        app.render(buf.area, &mut buf);
-
-        assert_snapshot!(buf_string(&buf));
-    }
-
-    #[test]
-    fn test_tui_cancel_rect() {
-        let tmp = tempfile::NamedTempFile::new().unwrap();
-        let mut app = App::new(Config::default(), tmp.path().to_path_buf()).unwrap();
-        let mut buf = Buffer::empty(layout::Rect::new(0, 0, 32, 8));
-
-        // Draw one rect and cancel it
-        app.handle_key_event(KeyCode::Char('r').into()).unwrap();
-        app.handle_key_event(KeyCode::Char('s').into()).unwrap();
-        app.handle_key_event(KeyCode::Char('d').into()).unwrap();
         app.handle_key_event(KeyCode::Esc.into()).unwrap();
 
         // Start drawing another rect
@@ -411,10 +374,6 @@ mod tests {
 
         // Draw a line and confirm it
         input(&mut app, &['l', 'd', 'd', 's', 's', 's']);
-        app.handle_key_event(KeyCode::Enter.into()).unwrap();
-
-        // Draw a line and cancel it
-        input(&mut app, &['l', 'd', 'd', 's', 's', 's']);
         app.handle_key_event(KeyCode::Esc.into()).unwrap();
 
         // Draw a unconfirmed line with multiple points
@@ -436,17 +395,19 @@ mod tests {
         let mut app = App::new(Config::default(), tmp.path().to_path_buf()).unwrap();
         let mut buf = Buffer::empty(layout::Rect::new(0, 0, 32, 8));
 
-        // Draw some text and confirm it
+        // Draw some text
         input(&mut app, &['s', 'd', 'i', 'f', 'o', 'o', 'x']);
         app.handle_key_event(KeyCode::Backspace.into()).unwrap();
-        app.handle_key_event(KeyCode::Enter.into()).unwrap();
 
-        // Draw some more text and cancel it
-        input(&mut app, &['s', 'd', 'i', 'f', 'o', 'o', 'x']);
+        // Add a new line
+        app.handle_key_event(KeyCode::Enter.into()).unwrap();
+        input(&mut app, &['b', 'a', 'r']);
+
+        // Exit text mode
         app.handle_key_event(KeyCode::Esc.into()).unwrap();
 
-        // Draw some unconfirmed text
-        input(&mut app, &['i', 'b', 'a', 'r']);
+        // Draw some text without exiting text mode
+        input(&mut app, &['i', 'b', 'a', 'z']);
 
         app.render(buf.area, &mut buf);
 
@@ -477,7 +438,7 @@ mod tests {
             &mut app,
             &['i', 's', 'a', 'v', 'e', ' ', 't', 'h', 'i', 's'],
         );
-        app.handle_key_event(KeyCode::Enter.into()).unwrap();
+        app.handle_key_event(KeyCode::Esc.into()).unwrap();
 
         // Save
         app.handle_key_event(KeyEvent::new(KeyCode::Char('s'), KeyModifiers::CONTROL))
@@ -509,16 +470,16 @@ mod tests {
 
         // Draw a few rects
         input(&mut app, &['r', 's', 'd']);
-        app.handle_key_event(KeyCode::Enter.into()).unwrap();
+        app.handle_key_event(KeyCode::Esc.into()).unwrap();
 
         input(&mut app, &['r', 's', 's', 'd', 'd', 'd']);
-        app.handle_key_event(KeyCode::Enter.into()).unwrap();
+        app.handle_key_event(KeyCode::Esc.into()).unwrap();
 
         input(&mut app, &['d', 'd', 'r', 'w', 'w', 'w', 'a']);
-        app.handle_key_event(KeyCode::Enter.into()).unwrap();
+        app.handle_key_event(KeyCode::Esc.into()).unwrap();
 
         input(&mut app, &['l', 's', 'a', 'a']);
-        app.handle_key_event(KeyCode::Enter.into()).unwrap();
+        app.handle_key_event(KeyCode::Esc.into()).unwrap();
 
         for _ in 0..4 {
             eprintln!("undo");

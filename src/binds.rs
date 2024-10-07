@@ -96,7 +96,7 @@ mod tests {
                 ("S-l".into(), Action::MoveCursor { x: 0, y: -5 }),
                 ("s-X".into(), Action::MoveCursor { x: -5, y: -5 }),
                 ("C-s".into(), Action::Save),
-                ("enter".into(), Action::Confirm),
+                ("enter".into(), Action::ExitMode),
                 ("C-S-tab".into(), Action::LineAddPoint),
                 ("a-enter".into(), Action::TextAddLine),
             ]
@@ -143,7 +143,7 @@ mod tests {
         );
         assert_matches!(
             b.get(&KeyEvent::new(KeyCode::Enter, KeyModifiers::empty())),
-            Some(Action::Confirm)
+            Some(Action::ExitMode)
         );
         assert_matches!(
             b.get(&KeyEvent::new(
