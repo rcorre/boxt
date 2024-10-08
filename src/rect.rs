@@ -1,5 +1,5 @@
 use crate::edit::Edit;
-use crate::vec::UVec;
+use crate::vec::{IVec, UVec};
 
 #[derive(Copy, Clone, Debug)]
 #[cfg_attr(test, derive(PartialEq))]
@@ -30,6 +30,13 @@ impl Rect {
         Self {
             top_left: UVec { x: x1, y: y1 },
             bottom_right: UVec { x: x2, y: y2 },
+        }
+    }
+
+    pub fn translated(&self, d: IVec) -> Self {
+        Self {
+            top_left: self.top_left.translated(d),
+            bottom_right: self.bottom_right.translated(d),
         }
     }
 
@@ -68,11 +75,11 @@ impl Rect {
                 chars: bottom,
             },
             Edit::Down {
-                start: top_left.down(),
+                start: top_left.translated(IVec::DOWN),
                 chars: side.clone(),
             },
             Edit::Down {
-                start: top_right.down(),
+                start: top_right.translated(IVec::DOWN),
                 chars: side,
             },
         ]
@@ -161,5 +168,18 @@ mod tests {
 |   |
 +---+"
         )
+    }
+
+    #[test]
+    fn test_rect_translated() {
+        let r = Rect::new(4, 2, 8, 5);
+        assert_eq!(r.translated(IVec { x: 0, y: 0 }), Rect::new(4, 2, 8, 5));
+        assert_eq!(r.translated(IVec { x: 1, y: 0 }), Rect::new(5, 2, 9, 5));
+        assert_eq!(r.translated(IVec { x: -1, y: 0 }), Rect::new(3, 2, 7, 5));
+        assert_eq!(r.translated(IVec { x: 0, y: 1 }), Rect::new(4, 3, 8, 6));
+        assert_eq!(r.translated(IVec { x: 0, y: -1 }), Rect::new(4, 1, 8, 4));
+
+        // BUG: "squishes" if translated into a corner
+        assert_eq!(r.translated(IVec { x: -5, y: -3 }), Rect::new(0, 0, 3, 2));
     }
 }

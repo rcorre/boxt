@@ -13,13 +13,6 @@ impl UVec {
             y: self.y.saturating_add_signed(d.y),
         }
     }
-
-    pub fn down(&self) -> Self {
-        Self {
-            x: self.x,
-            y: self.y + 1,
-        }
-    }
 }
 
 #[derive(Default, Debug, Clone, Copy)]
@@ -27,6 +20,13 @@ impl UVec {
 pub struct IVec {
     pub x: i16,
     pub y: i16,
+}
+
+impl IVec {
+    pub const UP: IVec = IVec { x: 0, y: -1 };
+    pub const DOWN: IVec = IVec { x: 0, y: 1 };
+    pub const LEFT: IVec = IVec { x: -1, y: 0 };
+    pub const RIGHT: IVec = IVec { x: 1, y: 0 };
 }
 
 #[cfg(test)]

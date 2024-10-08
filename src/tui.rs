@@ -14,7 +14,7 @@ use crate::{
     line::Line,
     rect::Rect,
     text::Text,
-    vec::UVec,
+    vec::{IVec, UVec},
 };
 
 #[derive(Default, Debug)]
@@ -104,8 +104,9 @@ impl App {
                 log::debug!("Updated line to {l:?}");
             }
             Mode::Text(_) => {}
-            Mode::SelectRect(_rect) => {
-                todo!();
+            Mode::SelectRect(rect) => {
+                *rect = rect.translated(IVec { x, y });
+                log::debug!("Translated rect to {rect:?}");
             }
         }
     }
