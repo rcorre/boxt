@@ -1,16 +1,16 @@
 use crate::edit::Edit;
-use crate::point::Point;
+use crate::vec::UVec;
 
 #[derive(Debug)]
 pub struct Text {
-    pub start: Point,
+    pub start: UVec,
     pub text: String,
 }
 
 impl Text {
     pub fn new(x: u16, y: u16, text: &str) -> Text {
         Self {
-            start: Point { x, y },
+            start: UVec { x, y },
             text: text.into(),
         }
     }
@@ -20,7 +20,7 @@ impl Text {
             .lines()
             .enumerate()
             .map(|(i, line)| Edit::Right {
-                start: Point {
+                start: UVec {
                     x: self.start.x,
                     y: self.start.y + i as u16,
                 },

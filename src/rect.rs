@@ -1,13 +1,11 @@
-use ratatui::symbols::line::TOP_LEFT;
-
 use crate::edit::Edit;
-use crate::point::Point;
+use crate::vec::UVec;
 
 #[derive(Copy, Clone, Debug)]
 #[cfg_attr(test, derive(PartialEq))]
 pub struct Rect {
-    pub top_left: Point,
-    pub bottom_right: Point,
+    pub top_left: UVec,
+    pub bottom_right: UVec,
 }
 
 impl Rect {
@@ -30,23 +28,23 @@ impl Rect {
 
     pub fn new(x1: u16, y1: u16, x2: u16, y2: u16) -> Rect {
         Self {
-            top_left: Point { x: x1, y: y1 },
-            bottom_right: Point { x: x2, y: y2 },
+            top_left: UVec { x: x1, y: y1 },
+            bottom_right: UVec { x: x2, y: y2 },
         }
     }
 
     pub fn edits(&self) -> Vec<Edit> {
         let Rect {
-            top_left: Point { x: x1, y: y1 },
-            bottom_right: Point { x: x2, y: y2 },
+            top_left: UVec { x: x1, y: y1 },
+            bottom_right: UVec { x: x2, y: y2 },
         } = *self;
 
         let (x1, x2) = if x1 < x2 { (x1, x2) } else { (x2, x1) };
         let (y1, y2) = if y1 < y2 { (y1, y2) } else { (y2, y1) };
 
-        let top_left = Point { x: x1, y: y1 };
-        let bottom_left = Point { x: x1, y: y2 };
-        let top_right = Point { x: x2, y: y1 };
+        let top_left = UVec { x: x1, y: y1 };
+        let bottom_left = UVec { x: x1, y: y2 };
+        let top_right = UVec { x: x2, y: y1 };
         let w = (x2 - x1) as usize;
         let h = (y2 - y1) as usize;
 

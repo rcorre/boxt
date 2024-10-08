@@ -1,4 +1,4 @@
-use crate::{edit::Edit, point::Point, rect::Rect};
+use crate::{edit::Edit, rect::Rect, vec::UVec};
 
 const EMPTY: char = ' ';
 
@@ -36,7 +36,7 @@ impl Canvas {
         }
     }
 
-    fn get(&self, point: Point) -> char {
+    fn get(&self, point: UVec) -> char {
         self.current[point.y as usize][point.x as usize]
     }
 
@@ -136,14 +136,14 @@ impl Canvas {
         self.undo.push(undo);
     }
 
-    pub fn clear(&mut self, point: Point) {
+    pub fn clear(&mut self, point: UVec) {
         self.edit(std::iter::once(Edit::Right {
             start: point,
             chars: vec![EMPTY],
         }));
     }
 
-    fn find(&self, mut point: Point, dx: i16, dy: i16, c: &[char]) -> Option<Point> {
+    fn find(&self, mut point: UVec, dx: i16, dy: i16, c: &[char]) -> Option<UVec> {
         let (size_y, size_x) = self.size();
         while point.x < size_x as u16 && point.y < size_y as u16 {
             if c.contains(&self.get(point)) {
@@ -163,7 +163,7 @@ impl Canvas {
         None
     }
 
-    pub fn rect_around(&self, origin: Point) -> Option<Rect> {
+    pub fn rect_around(&self, origin: UVec) -> Option<Rect> {
         log::debug!("Finding rect around {origin:?}");
         let horizontal = &[
             Rect::HORIZONTAL,
@@ -197,19 +197,19 @@ impl Canvas {
             return None;
         };
 
-        let top_left = Point {
+        let top_left = UVec {
             x: left.x,
             y: top.y,
         };
-        let top_right = Point {
+        let top_right = UVec {
             x: right.x,
             y: top.y,
         };
-        let bottom_left = Point {
+        let bottom_left = UVec {
             x: left.x,
             y: bottom.y,
         };
-        let bottom_right = Point {
+        let bottom_right = UVec {
             x: right.x,
             y: bottom.y,
         };
@@ -245,7 +245,7 @@ impl Canvas {
         )
     }
 
-    fn maybe_expand(&mut self, bounds: Point) {
+    fn maybe_expand(&mut self, bounds: UVec) {
         let (size_y, size_x) = self.size();
         let new_size_y = std::cmp::max(size_y, bounds.y as usize);
         let new_size_x = std::cmp::max(size_x, bounds.x as usize);
@@ -274,7 +274,7 @@ impl Canvas {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{point::Point, rect::Rect};
+    use crate::{rect::Rect, vec::UVec};
     use pretty_assertions::assert_eq;
 
     #[test]
@@ -284,11 +284,11 @@ mod tests {
         c.edit(
             vec![
                 Edit::Right {
-                    start: Point { x: 2, y: 1 },
+                    start: UVec { x: 2, y: 1 },
                     chars: vec!['-', '-', '-', '+'],
                 },
                 Edit::Down {
-                    start: Point { x: 5, y: 2 },
+                    start: UVec { x: 5, y: 2 },
                     chars: vec!['|', '|'],
                 },
             ]
@@ -322,11 +322,11 @@ mod tests {
         c.edit(
             vec![
                 Edit::Right {
-                    start: Point { x: 2, y: 1 },
+                    start: UVec { x: 2, y: 1 },
                     chars: vec!['-', '-', '-', '+'],
                 },
                 Edit::Down {
-                    start: Point { x: 5, y: 2 },
+                    start: UVec { x: 5, y: 2 },
                     chars: vec!['|', '|'],
                 },
             ]
@@ -337,11 +337,11 @@ mod tests {
         c.edit(
             vec![
                 Edit::Down {
-                    start: Point { x: 2, y: 1 },
+                    start: UVec { x: 2, y: 1 },
                     chars: vec!['+', '|'],
                 },
                 Edit::Right {
-                    start: Point { x: 4, y: 2 },
+                    start: UVec { x: 4, y: 2 },
                     chars: vec!['-', '-', '-'],
                 },
             ]
@@ -380,11 +380,11 @@ mod tests {
         c.edit(
             vec![
                 Edit::Right {
-                    start: Point { x: 2, y: 1 },
+                    start: UVec { x: 2, y: 1 },
                     chars: vec!['-', '-', '-', '+'],
                 },
                 Edit::Down {
-                    start: Point { x: 5, y: 2 },
+                    start: UVec { x: 5, y: 2 },
                     chars: vec!['|', '|'],
                 },
             ]
@@ -398,11 +398,11 @@ mod tests {
         c.edit(
             vec![
                 Edit::Down {
-                    start: Point { x: 2, y: 1 },
+                    start: UVec { x: 2, y: 1 },
                     chars: vec!['+', '|'],
                 },
                 Edit::Right {
-                    start: Point { x: 4, y: 2 },
+                    start: UVec { x: 4, y: 2 },
                     chars: vec!['-', '-', '-'],
                 },
             ]
@@ -429,7 +429,7 @@ mod tests {
         // BUG: Selecting on the borders does not select the correct rect bounds
         for y in 0..7 {
             for x in 0..12 {
-                let point = Point { x, y };
+                let point = UVec { x, y };
                 let expected = if x > 3 && x < 8 && y > 2 && y < 5 {
                     Some(expected)
                 } else {

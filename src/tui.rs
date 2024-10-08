@@ -12,9 +12,9 @@ use crate::{
     canvas::Canvas,
     config::{Action, Config, EnterMode},
     line::Line,
-    point::Point,
     rect::Rect,
     text::Text,
+    vec::UVec,
 };
 
 #[derive(Default, Debug)]
@@ -32,14 +32,14 @@ enum Mode {
 #[derive(Default)]
 struct App {
     binds: Binds,
-    cursor: Point,
+    cursor: UVec,
     canvas: Canvas,
     exit: bool,
     mode: Mode,
     path: std::path::PathBuf,
-    undo_cursor_pos: Vec<Point>,
-    redo_cursor_pos: Vec<Point>,
-    last_edit_cursor_pos: Point,
+    undo_cursor_pos: Vec<UVec>,
+    redo_cursor_pos: Vec<UVec>,
+    last_edit_cursor_pos: UVec,
 }
 
 impl App {
