@@ -1,4 +1,4 @@
-use crate::{edit::Edit, point::Point};
+use crate::{edit::Edit, point::Point, rect::Rect};
 
 const EMPTY: char = ' ';
 
@@ -34,6 +34,10 @@ impl Canvas {
         for row in &mut self.current {
             row.resize(size, EMPTY.into());
         }
+    }
+
+    fn get(&self, point: Point) -> char {
+        self.current[point.y as usize][point.x as usize]
     }
 
     pub fn from_str(s: &str) -> Canvas {
@@ -139,6 +143,100 @@ impl Canvas {
         }));
     }
 
+    fn find(&self, mut point: Point, dx: i16, dy: i16, c: &[char]) -> Option<Point> {
+        let (size_y, size_x) = self.size();
+        while point.x < size_x as u16 && point.y < size_y as u16 {
+            if c.contains(&self.get(point)) {
+                return Some(point);
+            }
+            point.x = if let Some(x) = point.x.checked_add_signed(dx) {
+                x
+            } else {
+                return None;
+            };
+            point.y = if let Some(y) = point.y.checked_add_signed(dy) {
+                y
+            } else {
+                return None;
+            };
+        }
+        None
+    }
+
+    pub fn rect_around(&self, origin: Point) -> Option<Rect> {
+        log::debug!("Finding rect around {origin:?}");
+        let horizontal = &[
+            Rect::HORIZONTAL,
+            Rect::TOP_LEFT,
+            Rect::TOP_RIGHT,
+            Rect::BOTTOM_LEFT,
+            Rect::BOTTOM_RIGHT,
+        ];
+        let vertical = &[
+            Rect::VERTICAL,
+            Rect::TOP_LEFT,
+            Rect::TOP_RIGHT,
+            Rect::BOTTOM_LEFT,
+            Rect::BOTTOM_RIGHT,
+        ];
+
+        let Some(top) = self.find(origin, 0, -1, horizontal) else {
+            log::debug!("No '{horizontal:?}' found above {origin:?}");
+            return None;
+        };
+        let Some(bottom) = self.find(origin, 0, 1, horizontal) else {
+            log::debug!("No '{horizontal:?}' found below {origin:?}");
+            return None;
+        };
+        let Some(left) = self.find(origin, -1, 0, vertical) else {
+            log::debug!("No '{vertical:?}' found left of {origin:?}");
+            return None;
+        };
+        let Some(right) = self.find(origin, 1, 0, vertical) else {
+            log::debug!("No '{vertical:?}' found right of {origin:?}");
+            return None;
+        };
+
+        let top_left = Point {
+            x: left.x,
+            y: top.y,
+        };
+        let top_right = Point {
+            x: right.x,
+            y: top.y,
+        };
+        let bottom_left = Point {
+            x: left.x,
+            y: bottom.y,
+        };
+        let bottom_right = Point {
+            x: right.x,
+            y: bottom.y,
+        };
+
+        if self.get(top_left) != Rect::TOP_LEFT {
+            log::debug!("No rect corner found at {top_left:?}");
+            return None;
+        }
+        if self.get(top_right) != Rect::TOP_RIGHT {
+            log::debug!("No rect corner found at {top_right:?}");
+            return None;
+        }
+        if self.get(bottom_left) != Rect::BOTTOM_LEFT {
+            log::debug!("No rect corner found at {bottom_left:?}");
+            return None;
+        }
+        if self.get(bottom_right) != Rect::BOTTOM_RIGHT {
+            log::debug!("No rect corner found at {bottom_right:?}");
+            return None;
+        }
+
+        Some(Rect {
+            top_left,
+            bottom_right,
+        })
+    }
+
     // Returns (size_y, size_x).
     fn size(&self) -> (usize, usize) {
         (
@@ -176,7 +274,7 @@ impl Canvas {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::point::Point;
+    use crate::{point::Point, rect::Rect};
     use pretty_assertions::assert_eq;
 
     #[test]
@@ -320,5 +418,25 @@ mod tests {
 
         c.redo();
         assert_eq!(c.to_string(), state2);
+    }
+
+    #[test]
+    fn test_match_rect() {
+        let mut c = Canvas::new(16, 8);
+        let expected = Rect::new(3, 2, 8, 5);
+        c.edit(expected.edits().into_iter());
+
+        // BUG: Selecting on the borders does not select the correct rect bounds
+        for y in 0..7 {
+            for x in 0..12 {
+                let point = Point { x, y };
+                let expected = if x > 3 && x < 8 && y > 2 && y < 5 {
+                    Some(expected)
+                } else {
+                    None
+                };
+                assert_eq!(c.rect_around(point), expected, "{point:?}");
+            }
+        }
     }
 }

@@ -1,7 +1,10 @@
+use ratatui::symbols::line::TOP_LEFT;
+
 use crate::edit::Edit;
 use crate::point::Point;
 
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug)]
+#[cfg_attr(test, derive(PartialEq))]
 pub struct Rect {
     pub top_left: Point,
     pub bottom_right: Point,
@@ -11,6 +14,19 @@ impl Rect {
     // ┌───┐
     // │   │
     // └───┘
+
+    pub const TOP_LEFT: char = '+';
+    pub const TOP_RIGHT: char = '+';
+    pub const HORIZONTAL: char = '-';
+    pub const VERTICAL: char = '|';
+    pub const BOTTOM_LEFT: char = '+';
+    pub const BOTTOM_RIGHT: char = '+';
+    pub const CORNERS: [char; 4] = [
+        Self::TOP_LEFT,
+        Self::TOP_RIGHT,
+        Self::BOTTOM_LEFT,
+        Self::BOTTOM_RIGHT,
+    ];
 
     pub fn new(x1: u16, y1: u16, x2: u16, y2: u16) -> Rect {
         Self {
@@ -34,22 +50,15 @@ impl Rect {
         let w = (x2 - x1) as usize;
         let h = (y2 - y1) as usize;
 
-        const TOP_LEFT: char = '+';
-        const TOP_RIGHT: char = '+';
-        const HORIZONTAL: char = '-';
-        const VERTICAL: char = '|';
-        const BOTTOM_LEFT: char = '+';
-        const BOTTOM_RIGHT: char = '+';
+        let mut top = vec![Self::HORIZONTAL; w + 1];
+        top[0] = Self::TOP_LEFT;
+        top[w] = Self::TOP_RIGHT;
 
-        let mut top = vec![HORIZONTAL; w + 1];
-        top[0] = TOP_LEFT;
-        top[w] = TOP_RIGHT;
+        let mut bottom = vec![Self::HORIZONTAL; w + 1];
+        bottom[0] = Self::BOTTOM_LEFT;
+        bottom[w] = Self::BOTTOM_RIGHT;
 
-        let mut bottom = vec![HORIZONTAL; w + 1];
-        bottom[0] = BOTTOM_LEFT;
-        bottom[w] = BOTTOM_RIGHT;
-
-        let side = vec![VERTICAL; h.saturating_sub(1)];
+        let side = vec![Self::VERTICAL; h.saturating_sub(1)];
 
         vec![
             Edit::Right {

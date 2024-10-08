@@ -25,6 +25,7 @@ pub enum Action {
     Delete,
     Undo,
     Redo,
+    SelectRect,
 }
 
 #[derive(Debug, Deserialize)]
@@ -74,6 +75,7 @@ impl Default for BindConfig {
                 ("esc".to_string(), Action::ExitMode),
                 ("u".to_string(), Action::Undo),
                 ("U".to_string(), Action::Redo),
+                ("m".to_string(), Action::SelectRect),
             ]
             .into(),
         )

@@ -21,9 +21,12 @@ use crate::{
 enum Mode {
     #[default]
     Normal,
+
     Rect(Rect),
     Line(Line),
     Text(Text),
+
+    SelectRect(Rect),
 }
 
 #[derive(Default)]
@@ -101,6 +104,9 @@ impl App {
                 log::debug!("Updated line to {l:?}");
             }
             Mode::Text(_) => {}
+            Mode::SelectRect(_rect) => {
+                todo!();
+            }
         }
     }
 
@@ -221,6 +227,9 @@ impl App {
                     self.last_edit_cursor_pos = self.cursor;
                     self.mode = Mode::Normal;
                 }
+                Mode::SelectRect(rect) => {
+                    todo!();
+                }
             },
 
             Action::TextAddLine => todo!(),
@@ -244,6 +253,15 @@ impl App {
                     log::debug!("Restoring cursor to {pos:?}");
                     self.undo_cursor_pos.push(self.cursor);
                     self.cursor = pos;
+                }
+            }
+
+            Action::SelectRect => {
+                if let Some(rect) = self.canvas.rect_around(self.cursor) {
+                    log::info!("Selected rect {rect:?}");
+                    self.mode = Mode::SelectRect(rect);
+                } else {
+                    log::info!("No rect matched at {:?}", self.cursor);
                 }
             }
         }
@@ -274,6 +292,7 @@ impl Widget for &App {
         // TODO: have separate scratch layer
         let mut canvas = self.canvas.clone();
 
+        let mut style = ratatui::style::Style::default();
         match &self.mode {
             Mode::Normal => {}
             Mode::Rect(r) => {
@@ -288,9 +307,14 @@ impl Widget for &App {
                 log::debug!("Drawing text: {t:?}");
                 canvas.edit(t.edits().into_iter());
             }
+            Mode::SelectRect(r) => {
+                log::debug!("Drawing selected rect: {r:?}");
+                canvas.edit(r.edits().into_iter());
+                style = style.bold().fg(Color::Cyan);
+            }
         }
 
-        let text = ratatui::text::Text::raw(canvas.to_string());
+        let text = ratatui::text::Text::styled(canvas.to_string(), style);
         Paragraph::new(text).block(block).render(area, buf);
     }
 }
