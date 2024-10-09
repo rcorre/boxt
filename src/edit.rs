@@ -24,6 +24,20 @@ impl Edit {
             },
         }
     }
+
+    // Return a version of this edit that erases it's shape.
+    pub fn whiteout(&self) -> Edit {
+        match self {
+            Edit::Right { start, chars } => Edit::Right {
+                start: *start,
+                chars: vec![' '; chars.len()],
+            },
+            Edit::Down { start, chars } => Edit::Down {
+                start: *start,
+                chars: vec![' '; chars.len()],
+            },
+        }
+    }
 }
 
 #[cfg(test)]

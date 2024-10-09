@@ -11,6 +11,7 @@ use crate::{
     binds::Binds,
     canvas::Canvas,
     config::{Action, Config, EnterMode},
+    edit::Edit,
     line::Line,
     rect::Rect,
     text::Text,
@@ -87,6 +88,10 @@ impl App {
             _ => {}
         };
         Ok(())
+    }
+
+    fn whiteout(edits: impl Iterator<Item = Edit>) -> impl Iterator<Item = Edit> {
+        edits.map(|e| e.whiteout())
     }
 
     fn move_cursor(&mut self, x: i16, y: i16) {
@@ -229,7 +234,12 @@ impl App {
                     self.mode = Mode::Normal;
                 }
                 Mode::SelectRect(rect) => {
-                    todo!();
+                    log::debug!("Deselecing rect {rect:?}");
+                    self.canvas.edit(rect.edits().into_iter());
+                    self.undo_cursor_pos.push(rect.top_left);
+                    self.redo_cursor_pos.clear();
+                    self.last_edit_cursor_pos = self.cursor;
+                    self.mode = Mode::Normal;
                 }
             },
 
@@ -261,6 +271,7 @@ impl App {
                 if let Some(rect) = self.canvas.rect_around(self.cursor) {
                     log::info!("Selected rect {rect:?}");
                     self.mode = Mode::SelectRect(rect);
+                    self.canvas.erase(rect.edits().into_iter());
                 } else {
                     log::info!("No rect matched at {:?}", self.cursor);
                 }
@@ -521,5 +532,34 @@ mod tests {
             app.render(buf.area, &mut buf);
             assert_snapshot!(buf_string(&buf));
         }
+    }
+
+    #[test]
+    fn test_select_rect() {
+        let mut tmp = tempfile::NamedTempFile::new().unwrap();
+        tmp.write_all(
+            [
+                "                ",
+                "   +---+        ",
+                "   |   |        ",
+                "   |   |        ",
+                "   +---+        ",
+                "                ",
+                "                ",
+            ]
+            .join("\n")
+            .as_bytes(),
+        )
+        .unwrap();
+        tmp.flush().unwrap();
+        let mut app = App::new(Config::default(), tmp.path().to_path_buf()).unwrap();
+
+        input(&mut app, &['s', 's', 'd', 'd', 'd', 'd', 'm', 's', 'd']);
+        app.handle_key_event(KeyCode::Esc.into()).unwrap();
+
+        let mut buf = Buffer::empty(layout::Rect::new(0, 0, 32, 8));
+        app.render(buf.area, &mut buf);
+
+        assert_snapshot!(buf_string(&buf));
     }
 }
