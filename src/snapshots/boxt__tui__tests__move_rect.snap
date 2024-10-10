@@ -1,0 +1,12 @@
+---
+source: src/tui.rs
+expression: test.render()
+---
+┏━━━━━━━━━━━━━Boxt━━━━━━━━━━━━━┓
+┃                              ┃
+┃                              ┃
+┃    +---+                     ┃
+┃    |   |                     ┃
+┃    |   |                     ┃
+┃    +---+                     ┃
+┗ Move <WASD> Rect <R> Quit <Q>┛

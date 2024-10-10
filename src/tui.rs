@@ -253,10 +253,29 @@ impl App {
             },
 
             Action::TextAddLine => todo!(),
-            Action::Delete => {
-                log::debug!("Deleting char at: {:?}", self.cursor);
-                self.canvas.clear(self.cursor);
-            }
+            Action::Delete => match &self.mode {
+                Mode::Normal => {
+                    log::debug!("Deleting char at: {:?}", self.cursor);
+                    self.canvas.clear(self.cursor);
+                }
+                Mode::SelectRect {
+                    cursor_start,
+                    original,
+                    ..
+                } => {
+                    log::debug!("Deleting rect {original:?}");
+                    self.canvas
+                        .edit(original.edits().into_iter().map(|e| e.erase()));
+                    self.undo_cursor_pos.push(*cursor_start);
+                    self.redo_cursor_pos.clear();
+                    self.last_edit_cursor_pos = self.cursor;
+                    self.mode = Mode::Normal;
+                }
+                mode => {
+                    log::debug!("Ignoring delete in mode: {mode:?}");
+                }
+            },
+
             Action::Undo => {
                 log::debug!("Undo");
                 self.canvas.undo();
@@ -577,7 +596,7 @@ mod tests {
     }
 
     #[test]
-    fn test_select_rect() {
+    fn test_move_rect() {
         let mut test = Test::load(&[
             "                ",
             "   +---+        ",
@@ -598,5 +617,23 @@ mod tests {
         // undo the move
         test.input("u");
         assert_eq!(test.render(), before);
+    }
+
+    #[test]
+    fn test_delete_rect() {
+        let mut test = Test::load(&[
+            "                ",
+            "   +---+        ",
+            "   |   |        ",
+            "   |   |        ",
+            "   +---+        ",
+            "                ",
+            "                ",
+        ]);
+
+        test.input("ssddddmx");
+        test.app.handle_key_event(KeyCode::Esc.into()).unwrap();
+
+        assert_snapshot!(test.render());
     }
 }
