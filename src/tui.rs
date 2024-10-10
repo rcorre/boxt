@@ -11,7 +11,6 @@ use crate::{
     binds::Binds,
     canvas::Canvas,
     config::{Action, Config, EnterMode},
-    edit::Edit,
     line::Line,
     rect::Rect,
     text::Text,
@@ -27,7 +26,11 @@ enum Mode {
     Line(Line),
     Text(Text),
 
-    SelectRect(Rect),
+    SelectRect {
+        cursor_start: UVec,
+        original: Rect,
+        current: Rect,
+    },
 }
 
 #[derive(Default)]
@@ -90,10 +93,6 @@ impl App {
         Ok(())
     }
 
-    fn whiteout(edits: impl Iterator<Item = Edit>) -> impl Iterator<Item = Edit> {
-        edits.map(|e| e.whiteout())
-    }
-
     fn move_cursor(&mut self, x: i16, y: i16) {
         self.cursor.x = self.cursor.x.saturating_add_signed(x);
         self.cursor.y = self.cursor.y.saturating_add_signed(y);
@@ -109,9 +108,9 @@ impl App {
                 log::debug!("Updated line to {l:?}");
             }
             Mode::Text(_) => {}
-            Mode::SelectRect(rect) => {
-                *rect = rect.translated(IVec { x, y });
-                log::debug!("Translated rect to {rect:?}");
+            Mode::SelectRect { current, .. } => {
+                *current = current.translated(IVec { x, y });
+                log::debug!("Translated rect to {current:?}");
             }
         }
     }
@@ -233,10 +232,20 @@ impl App {
                     self.last_edit_cursor_pos = self.cursor;
                     self.mode = Mode::Normal;
                 }
-                Mode::SelectRect(rect) => {
-                    log::debug!("Deselecing rect {rect:?}");
-                    self.canvas.edit(rect.edits().into_iter());
-                    self.undo_cursor_pos.push(rect.top_left);
+                Mode::SelectRect {
+                    cursor_start,
+                    original,
+                    current,
+                } => {
+                    log::debug!("Deselecing rect {current:?}");
+                    self.canvas.edit(
+                        original
+                            .edits()
+                            .into_iter()
+                            .map(|e| e.erase())
+                            .chain(current.edits().into_iter()),
+                    );
+                    self.undo_cursor_pos.push(*cursor_start);
                     self.redo_cursor_pos.clear();
                     self.last_edit_cursor_pos = self.cursor;
                     self.mode = Mode::Normal;
@@ -270,8 +279,11 @@ impl App {
             Action::SelectRect => {
                 if let Some(rect) = self.canvas.rect_around(self.cursor) {
                     log::info!("Selected rect {rect:?}");
-                    self.mode = Mode::SelectRect(rect);
-                    self.canvas.erase(rect.edits().into_iter());
+                    self.mode = Mode::SelectRect {
+                        cursor_start: self.cursor,
+                        original: rect,
+                        current: rect,
+                    };
                 } else {
                     log::info!("No rect matched at {:?}", self.cursor);
                 }
@@ -319,9 +331,12 @@ impl Widget for &App {
                 log::debug!("Drawing text: {t:?}");
                 canvas.edit(t.edits().into_iter());
             }
-            Mode::SelectRect(r) => {
-                log::debug!("Drawing selected rect: {r:?}");
-                canvas.edit(r.edits().into_iter());
+            Mode::SelectRect {
+                original, current, ..
+            } => {
+                log::debug!("Drawing selected rect: {current:?}");
+                canvas.edit(original.edits().into_iter().map(|e| e.erase()));
+                canvas.edit(current.edits().into_iter());
                 style = style.bold().fg(Color::Cyan);
             }
         }
@@ -347,6 +362,33 @@ mod tests {
     use super::*;
     use event::KeyModifiers;
     use insta::assert_snapshot;
+    use pretty_assertions::assert_eq;
+
+    struct Test {
+        app: App,
+        tmp: tempfile::NamedTempFile,
+    }
+
+    impl Test {
+        fn load(lines: &[&str]) -> Test {
+            let mut tmp = tempfile::NamedTempFile::new().unwrap();
+            tmp.write_all(lines.join("\n").as_bytes()).unwrap();
+            tmp.flush().unwrap();
+            let app = App::new(Config::default(), tmp.path().to_path_buf()).unwrap();
+            Test { app, tmp }
+        }
+
+        fn render(&self) -> String {
+            let mut buf = Buffer::empty(layout::Rect::new(0, 0, 32, 8));
+            self.app.render(buf.area, &mut buf);
+            buf_string(&buf)
+        }
+
+        fn input(&mut self, keys: &str) {
+            let chars: Vec<_> = keys.chars().collect();
+            input(&mut self.app, chars.as_slice());
+        }
+    }
 
     fn buf_string(buf: &Buffer) -> String {
         buf.content
@@ -536,30 +578,25 @@ mod tests {
 
     #[test]
     fn test_select_rect() {
-        let mut tmp = tempfile::NamedTempFile::new().unwrap();
-        tmp.write_all(
-            [
-                "                ",
-                "   +---+        ",
-                "   |   |        ",
-                "   |   |        ",
-                "   +---+        ",
-                "                ",
-                "                ",
-            ]
-            .join("\n")
-            .as_bytes(),
-        )
-        .unwrap();
-        tmp.flush().unwrap();
-        let mut app = App::new(Config::default(), tmp.path().to_path_buf()).unwrap();
+        let mut test = Test::load(&[
+            "                ",
+            "   +---+        ",
+            "   |   |        ",
+            "   |   |        ",
+            "   +---+        ",
+            "                ",
+            "                ",
+        ]);
 
-        input(&mut app, &['s', 's', 'd', 'd', 'd', 'd', 'm', 's', 'd']);
-        app.handle_key_event(KeyCode::Esc.into()).unwrap();
+        let before = test.render();
 
-        let mut buf = Buffer::empty(layout::Rect::new(0, 0, 32, 8));
-        app.render(buf.area, &mut buf);
+        test.input("ssddddmsd");
+        test.app.handle_key_event(KeyCode::Esc.into()).unwrap();
 
-        assert_snapshot!(buf_string(&buf));
+        assert_snapshot!(test.render());
+
+        // undo the move
+        test.input("u");
+        assert_eq!(test.render(), before);
     }
 }

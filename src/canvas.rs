@@ -100,13 +100,6 @@ impl Canvas {
         self.redo.clear();
     }
 
-    pub fn erase(&mut self, edits: impl Iterator<Item = Edit>) {
-        let undo = self.apply_edits(edits.map(|edit| edit.whiteout()), false);
-        log::debug!("Pushing undo: {undo:?}");
-        self.undo.push(undo);
-        self.redo.clear();
-    }
-
     pub fn undo(&mut self) {
         let Some(undo) = self.undo.pop() else {
             log::info!("Nothing left to undo");

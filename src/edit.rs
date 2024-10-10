@@ -26,7 +26,7 @@ impl Edit {
     }
 
     // Return a version of this edit that erases it's shape.
-    pub fn whiteout(&self) -> Edit {
+    pub fn erase(&self) -> Edit {
         match self {
             Edit::Right { start, chars } => Edit::Right {
                 start: *start,
