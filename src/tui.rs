@@ -389,6 +389,10 @@ mod tests {
     }
 
     impl Test {
+        fn new() -> Test {
+            Test::load(&[])
+        }
+
         fn load(lines: &[&str]) -> Test {
             let mut tmp = tempfile::NamedTempFile::new().unwrap();
             tmp.write_all(lines.join("\n").as_bytes()).unwrap();
@@ -401,6 +405,10 @@ mod tests {
             let mut buf = Buffer::empty(layout::Rect::new(0, 0, 32, 8));
             self.app.render(buf.area, &mut buf);
             buf_string(&buf)
+        }
+
+        fn key(&mut self, key: KeyCode) {
+            self.app.handle_key_event(key.into()).unwrap();
         }
 
         fn input(&mut self, keys: &str) {
@@ -430,60 +438,36 @@ mod tests {
 
     #[test]
     fn test_tui_render_empty() {
-        let tmp = tempfile::NamedTempFile::new().unwrap();
-        let app = App::new(Config::default(), tmp.path().to_path_buf()).unwrap();
-        let mut buf = Buffer::empty(layout::Rect::new(0, 0, 32, 8));
-
-        app.render(buf.area, &mut buf);
-
-        assert_snapshot!(buf_string(&buf));
+        let test = Test::new();
+        assert_snapshot!(test.render());
     }
 
     #[test]
     fn test_tui_draw_rect() {
-        let tmp = tempfile::NamedTempFile::new().unwrap();
-        let mut app = App::new(Config::default(), tmp.path().to_path_buf()).unwrap();
-        let mut buf = Buffer::empty(layout::Rect::new(0, 0, 32, 8));
+        let mut test = Test::new();
 
         // Draw one rect and confirm it
-        app.handle_key_event(KeyCode::Char('r').into()).unwrap();
-        app.handle_key_event(KeyCode::Char('s').into()).unwrap();
-        app.handle_key_event(KeyCode::Char('d').into()).unwrap();
-        app.handle_key_event(KeyCode::Esc.into()).unwrap();
+        test.input("rsd");
+        test.key(KeyCode::Esc);
 
         // Start drawing another rect
-        app.handle_key_event(KeyCode::Char('d').into()).unwrap();
-        app.handle_key_event(KeyCode::Char('d').into()).unwrap();
-        app.handle_key_event(KeyCode::Char('r').into()).unwrap();
-        app.handle_key_event(KeyCode::Char('s').into()).unwrap();
-        app.handle_key_event(KeyCode::Char('d').into()).unwrap();
+        test.input("ddrsd");
 
-        app.render(buf.area, &mut buf);
-
-        assert_snapshot!(buf_string(&buf));
+        assert_snapshot!(test.render());
     }
 
     #[test]
     fn test_tui_draw_line() {
-        let tmp = tempfile::NamedTempFile::new().unwrap();
-        let mut app = App::new(Config::default(), tmp.path().to_path_buf()).unwrap();
-        let mut buf = Buffer::empty(layout::Rect::new(0, 0, 32, 8));
+        let mut test = Test::new();
 
         // Draw a line and confirm it
-        input(&mut app, &['l', 'd', 'd', 's', 's', 's']);
-        app.handle_key_event(KeyCode::Esc.into()).unwrap();
+        test.input("lddsss");
+        test.key(KeyCode::Esc);
 
         // Draw a unconfirmed line with multiple points
-        input(
-            &mut app,
-            &[
-                's', 'd', 'd', 'd', 'd', 'd', 'l', 'w', 'w', 'a', 'a', ' ', 'd', 'd', ' ', 'w', 'w',
-            ],
-        );
+        test.input("sdddddlwwaa dd ww");
 
-        app.render(buf.area, &mut buf);
-
-        assert_snapshot!(buf_string(&buf));
+        assert_snapshot!(test.render());
     }
 
     #[test]
