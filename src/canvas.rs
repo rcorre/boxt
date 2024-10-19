@@ -1,4 +1,4 @@
-use crate::{edit::Edit, rect::Rect, vec::UVec};
+use crate::{edit::Edit, line::Line, rect::Rect, vec::UVec};
 
 const EMPTY: char = ' ';
 
@@ -235,6 +235,16 @@ impl Canvas {
             top_left,
             bottom_right,
         })
+    }
+
+    pub fn line_at(&self, origin: UVec) -> Option<Line> {
+        let Some(top) = self.find(origin, 0, -1, &[Line::CORNER]) else {
+            return None;
+        };
+        let Some(bottom) = self.find(origin, 0, 1, &[Line::CORNER]) else {
+            return None;
+        };
+        None
     }
 
     // Returns (size_y, size_x).

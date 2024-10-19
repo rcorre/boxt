@@ -9,9 +9,9 @@ pub struct Line {
 }
 
 impl Line {
-    const HORIZONTAL: char = '-';
-    const VERTICAL: char = '|';
-    const CORNER: char = '+';
+    pub const HORIZONTAL: char = '-';
+    pub const VERTICAL: char = '|';
+    pub const CORNER: char = '+';
 
     pub fn new(start: UVec, end: UVec) -> Self {
         Self {

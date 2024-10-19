@@ -3,13 +3,13 @@ use std::collections::HashMap;
 use anyhow::{bail, Result};
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyEventState, KeyModifiers};
 
-use crate::config::{self, Action};
+use crate::config::{self, Binding};
 
 #[derive(Default, Debug)]
-pub struct Binds(HashMap<KeyEvent, Action>);
+pub struct Binds(HashMap<KeyEvent, Binding>);
 
 impl Binds {
-    pub fn get(&self, ev: &KeyEvent) -> Option<&Action> {
+    pub fn get(&self, ev: &KeyEvent) -> Option<&Binding> {
         self.0.get(&ev)
     }
 
@@ -80,33 +80,38 @@ impl Binds {}
 
 #[cfg(test)]
 mod tests {
-    use std::assert_matches::assert_matches;
-
-    use config::BindConfig;
-    use crossterm::event::KeyModifiers;
+    use config::{Action, BindConfig, Binding};
 
     use super::*;
 
     #[test]
     fn test_binds() {
+        let s = Binding::Single(Action::MoveCursorUp);
+        let shift_s = Binding::Multi(vec![Action::MoveCursorUp; 6]);
+        let shift_l = Binding::Single(Action::Save);
+        let shift_x = Binding::Multi(vec![Action::Save, Action::Quit]);
+        let ctrl_s = Binding::Single(Action::LineAddPoint);
+        let enter = Binding::Single(Action::ExitMode);
+        let ctrl_shift_tab = Binding::Single(Action::Delete);
+        let alt_enter = Binding::Single(Action::Undo);
         let b = Binds::from_config(BindConfig(
             [
-                ("s".into(), Action::MoveCursor { x: -1, y: 0 }),
-                ("S".into(), Action::MoveCursor { x: -5, y: 0 }),
-                ("S-l".into(), Action::MoveCursor { x: 0, y: -5 }),
-                ("s-X".into(), Action::MoveCursor { x: -5, y: -5 }),
-                ("C-s".into(), Action::Save),
-                ("enter".into(), Action::ExitMode),
-                ("C-S-tab".into(), Action::LineAddPoint),
-                ("a-enter".into(), Action::TextAddLine),
+                ("s".into(), s.clone()),
+                ("S".into(), shift_s.clone()),
+                ("S-l".into(), shift_l.clone()),
+                ("s-X".into(), shift_x.clone()),
+                ("C-s".into(), ctrl_s.clone()),
+                ("enter".into(), enter.clone()),
+                ("C-S-tab".into(), ctrl_shift_tab.clone()),
+                ("a-enter".into(), alt_enter.clone()),
             ]
             .into(),
         ))
         .unwrap();
 
-        assert_matches!(
+        assert_eq!(
             b.get(&KeyEvent::new(KeyCode::Char('s'), KeyModifiers::empty())),
-            Some(Action::MoveCursor { x: -1, y: 0 })
+            Some(&s)
         );
 
         for ev in [
@@ -114,7 +119,7 @@ mod tests {
             KeyEvent::new(KeyCode::Char('s'), KeyModifiers::SHIFT),
             KeyEvent::new(KeyCode::Char('S'), KeyModifiers::SHIFT),
         ] {
-            assert_matches!(b.get(&ev), Some(Action::MoveCursor { x: -5, y: 0 }));
+            assert_eq!(b.get(&ev), Some(&shift_s));
         }
 
         for ev in [
@@ -122,7 +127,7 @@ mod tests {
             KeyEvent::new(KeyCode::Char('l'), KeyModifiers::SHIFT),
             KeyEvent::new(KeyCode::Char('L'), KeyModifiers::SHIFT),
         ] {
-            assert_matches!(b.get(&ev), Some(Action::MoveCursor { x: 0, y: -5 }));
+            assert_eq!(b.get(&ev), Some(&shift_l));
         }
 
         for ev in [
@@ -130,31 +135,31 @@ mod tests {
             KeyEvent::new(KeyCode::Char('x'), KeyModifiers::SHIFT),
             KeyEvent::new(KeyCode::Char('X'), KeyModifiers::SHIFT),
         ] {
-            assert_matches!(b.get(&ev), Some(Action::MoveCursor { x: -5, y: -5 }));
+            assert_eq!(b.get(&ev), Some(&shift_x));
         }
 
-        assert_matches!(
+        assert_eq!(
             b.get(&KeyEvent::new(KeyCode::Char('s'), KeyModifiers::CONTROL)),
-            Some(Action::Save)
+            Some(&ctrl_s)
         );
-        assert_matches!(
+        assert_eq!(
             b.get(&KeyEvent::new(KeyCode::Char('s'), KeyModifiers::ALT)),
             None
         );
-        assert_matches!(
+        assert_eq!(
             b.get(&KeyEvent::new(KeyCode::Enter, KeyModifiers::empty())),
-            Some(Action::ExitMode)
+            Some(&enter)
         );
-        assert_matches!(
+        assert_eq!(
             b.get(&KeyEvent::new(
                 KeyCode::Tab,
                 KeyModifiers::SHIFT | KeyModifiers::CONTROL
             )),
-            Some(Action::LineAddPoint)
+            Some(&ctrl_shift_tab)
         );
-        assert_matches!(
+        assert_eq!(
             b.get(&KeyEvent::new(KeyCode::Enter, KeyModifiers::ALT,)),
-            Some(Action::TextAddLine)
+            Some(&alt_enter)
         );
     }
 }

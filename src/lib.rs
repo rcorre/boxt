@@ -1,5 +1,4 @@
 #![feature(array_windows)]
-#![feature(assert_matches)]
 
 pub mod binds;
 pub mod canvas;

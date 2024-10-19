@@ -10,7 +10,7 @@ use ratatui::{
 use crate::{
     binds::Binds,
     canvas::Canvas,
-    config::{Action, Config, EnterMode},
+    config::{Action, Config},
     line::Line,
     rect::Rect,
     text::Text,
@@ -115,42 +115,7 @@ impl App {
         }
     }
 
-    fn handle_key_event(&mut self, key: KeyEvent) -> Result<()> {
-        log::trace!("Handling key {key:?} in mode {:?}", self.mode);
-
-        if let Mode::Text(s) = &mut self.mode {
-            match key.code {
-                KeyCode::Backspace => {
-                    let c = s.text.pop();
-                    log::debug!("Popped {c:?} from {s:?}");
-                    if c.is_some() {
-                        self.move_cursor(-1, 0);
-                    }
-                    return Ok(());
-                }
-                KeyCode::Char(c) if key.modifiers.is_empty() => {
-                    log::debug!("Appending {c} to {s:?}");
-                    s.text.push(c);
-                    self.move_cursor(1, 0);
-                    return Ok(());
-                }
-                KeyCode::Enter if key.modifiers.is_empty() => {
-                    log::debug!("Appending newline to {s:?}");
-                    let len = s.text.lines().last().map(|l| l.len()).unwrap_or(0);
-                    s.text.push('\n');
-                    self.move_cursor(-(len as i16), 1);
-                    return Ok(());
-                }
-                _ => {}
-            }
-        }
-
-        let Some(action) = self.binds.get(&key) else {
-            log::trace!("Mapped key to no action");
-            return Ok(());
-        };
-        log::trace!("Mapped key to action {action:?}");
-
+    fn apply_action(&mut self, action: Action) -> Result<()> {
         match action {
             Action::Quit => {
                 log::info!("Exit requested");
@@ -162,29 +127,30 @@ impl App {
                 std::fs::write(&self.path, self.canvas.to_string())?;
             }
 
-            Action::MoveCursor { x, y } => self.move_cursor(*x, *y),
+            Action::MoveCursorUp => self.move_cursor(0, -1),
+            Action::MoveCursorDown => self.move_cursor(0, 1),
+            Action::MoveCursorLeft => self.move_cursor(-1, 0),
+            Action::MoveCursorRight => self.move_cursor(1, 0),
 
-            Action::EnterMode(mode) => match mode {
-                EnterMode::Rect => {
-                    self.mode = Mode::Rect(Rect {
-                        top_left: self.cursor,
-                        bottom_right: self.cursor,
-                    });
-                    self.move_cursor(1, 1);
-                    log::debug!("Set mode: {:?}", self.mode);
-                }
-                EnterMode::Line => {
-                    self.mode = Mode::Line(Line::new(self.cursor, self.cursor));
-                    log::debug!("Set mode: {:?}", self.mode);
-                }
-                EnterMode::Text => {
-                    self.mode = Mode::Text(Text {
-                        start: self.cursor,
-                        text: "".into(),
-                    });
-                    log::debug!("Set mode: {:?}", self.mode);
-                }
-            },
+            Action::DrawRect => {
+                self.mode = Mode::Rect(Rect {
+                    top_left: self.cursor,
+                    bottom_right: self.cursor,
+                });
+                self.move_cursor(1, 1);
+                log::debug!("Set mode: {:?}", self.mode);
+            }
+            Action::DrawLine => {
+                self.mode = Mode::Line(Line::new(self.cursor, self.cursor));
+                log::debug!("Set mode: {:?}", self.mode);
+            }
+            Action::DrawText => {
+                self.mode = Mode::Text(Text {
+                    start: self.cursor,
+                    text: "".into(),
+                });
+                log::debug!("Set mode: {:?}", self.mode);
+            }
 
             Action::LineAddPoint => match &mut self.mode {
                 Mode::Line(l) => {
@@ -310,6 +276,53 @@ impl App {
         }
         Ok(())
     }
+
+    fn handle_key_event(&mut self, key: KeyEvent) -> Result<()> {
+        log::trace!("Handling key {key:?} in mode {:?}", self.mode);
+
+        if let Mode::Text(s) = &mut self.mode {
+            match key.code {
+                KeyCode::Backspace => {
+                    let c = s.text.pop();
+                    log::debug!("Popped {c:?} from {s:?}");
+                    if c.is_some() {
+                        self.move_cursor(-1, 0);
+                    }
+                    return Ok(());
+                }
+                KeyCode::Char(c) if key.modifiers.is_empty() => {
+                    log::debug!("Appending {c} to {s:?}");
+                    s.text.push(c);
+                    self.move_cursor(1, 0);
+                    return Ok(());
+                }
+                KeyCode::Enter if key.modifiers.is_empty() => {
+                    log::debug!("Appending newline to {s:?}");
+                    let len = s.text.lines().last().map(|l| l.len()).unwrap_or(0);
+                    s.text.push('\n');
+                    self.move_cursor(-(len as i16), 1);
+                    return Ok(());
+                }
+                _ => {}
+            }
+        }
+
+        let Some(bound) = self.binds.get(&key) else {
+            log::trace!("Mapped key to no action");
+            return Ok(());
+        };
+        log::trace!("Mapped key to {bound:?}");
+
+        match bound {
+            crate::config::Binding::Single(s) => self.apply_action(s.clone())?,
+            crate::config::Binding::Multi(m) => {
+                for action in m.clone() {
+                    self.apply_action(action)?;
+                }
+            }
+        }
+        Ok(())
+    }
 }
 
 impl Widget for &App {
@@ -385,7 +398,7 @@ mod tests {
 
     struct Test {
         app: App,
-        tmp: tempfile::NamedTempFile,
+        _tmp: tempfile::NamedTempFile,
     }
 
     impl Test {
