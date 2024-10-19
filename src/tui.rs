@@ -398,7 +398,7 @@ mod tests {
 
     struct Test {
         app: App,
-        _tmp: tempfile::NamedTempFile,
+        tmp: tempfile::NamedTempFile,
     }
 
     impl Test {
@@ -485,110 +485,84 @@ mod tests {
 
     #[test]
     fn test_tui_draw_text() {
-        let tmp = tempfile::NamedTempFile::new().unwrap();
-        let mut app = App::new(Config::default(), tmp.path().to_path_buf()).unwrap();
-        let mut buf = Buffer::empty(layout::Rect::new(0, 0, 32, 8));
+        let mut test = Test::new();
 
         // Draw some text
-        input(&mut app, &['s', 'd', 'i', 'f', 'o', 'o', 'x']);
-        app.handle_key_event(KeyCode::Backspace.into()).unwrap();
+        test.input("sdifoox");
+        test.app
+            .handle_key_event(KeyCode::Backspace.into())
+            .unwrap();
 
         // Add a new line
-        app.handle_key_event(KeyCode::Enter.into()).unwrap();
-        input(&mut app, &['b', 'a', 'r']);
+        test.app.handle_key_event(KeyCode::Enter.into()).unwrap();
+        test.input("bar");
 
         // Exit text mode
-        app.handle_key_event(KeyCode::Esc.into()).unwrap();
+        test.app.handle_key_event(KeyCode::Esc.into()).unwrap();
 
         // Draw some text without exiting text mode
-        input(&mut app, &['i', 'b', 'a', 'z']);
+        test.input("ibaz");
 
-        app.render(buf.area, &mut buf);
-
-        assert_snapshot!(buf_string(&buf));
+        assert_snapshot!(test.render());
     }
 
     #[test]
     fn test_tui_load() {
-        let mut tmp = tempfile::NamedTempFile::new().unwrap();
-        tmp.write_all("  --  \n hello \n _   _ \n".as_bytes())
-            .unwrap();
-        tmp.flush().unwrap();
-        let app = App::new(Config::default(), tmp.path().to_path_buf()).unwrap();
-
-        let mut buf = Buffer::empty(layout::Rect::new(0, 0, 32, 8));
-        app.render(buf.area, &mut buf);
-
-        assert_snapshot!(buf_string(&buf));
+        let test = Test::load(&["  --  ", " hello ", " _   _ ", ""]);
+        assert_snapshot!(test.render());
     }
 
     #[test]
     fn test_tui_save() {
-        let tmp = tempfile::NamedTempFile::new().unwrap();
-        let mut app = App::new(Config::default(), tmp.path().to_path_buf()).unwrap();
+        let mut test = Test::new();
 
         // Draw some text and confirm it
-        input(
-            &mut app,
-            &['i', 's', 'a', 'v', 'e', ' ', 't', 'h', 'i', 's'],
-        );
-        app.handle_key_event(KeyCode::Esc.into()).unwrap();
+        test.input("isave this");
+        test.app.handle_key_event(KeyCode::Esc.into()).unwrap();
 
         // Save
-        app.handle_key_event(KeyEvent::new(KeyCode::Char('s'), KeyModifiers::CONTROL))
+        test.app
+            .handle_key_event(KeyEvent::new(KeyCode::Char('s'), KeyModifiers::CONTROL))
             .unwrap();
 
-        let actual = std::fs::read_to_string(tmp.path()).unwrap();
+        let actual = std::fs::read_to_string(test.tmp.path()).unwrap();
         assert_snapshot!(actual);
     }
 
     #[test]
     fn test_tui_delete() {
-        let mut tmp = tempfile::NamedTempFile::new().unwrap();
-        tmp.write_all("delete me".as_bytes()).unwrap();
-        tmp.flush().unwrap();
-        let mut app = App::new(Config::default(), tmp.path().to_path_buf()).unwrap();
-        input(&mut app, &['x', 'd', 'd', 'x']);
-
-        let mut buf = Buffer::empty(layout::Rect::new(0, 0, 32, 8));
-        app.render(buf.area, &mut buf);
-
-        assert_snapshot!(buf_string(&buf));
+        let mut test = Test::load(&["delete me"]);
+        test.input("xddx");
+        assert_snapshot!(test.render());
     }
 
     #[test]
     fn test_tui_undo_redo() {
-        let _ = env_logger::builder().is_test(true).try_init();
-        let tmp = tempfile::NamedTempFile::new().unwrap();
-        let mut app = App::new(Config::default(), tmp.path().to_path_buf()).unwrap();
+        let mut test = Test::new();
 
         // Draw a few rects
-        input(&mut app, &['r', 's', 'd']);
-        app.handle_key_event(KeyCode::Esc.into()).unwrap();
+        test.input("rsd");
+        test.app.handle_key_event(KeyCode::Esc.into()).unwrap();
 
-        input(&mut app, &['r', 's', 's', 'd', 'd', 'd']);
-        app.handle_key_event(KeyCode::Esc.into()).unwrap();
+        test.input("rssddd");
+        test.app.handle_key_event(KeyCode::Esc.into()).unwrap();
 
-        input(&mut app, &['d', 'd', 'r', 'w', 'w', 'w', 'a']);
-        app.handle_key_event(KeyCode::Esc.into()).unwrap();
+        test.input("ddrwwwa");
+        test.app.handle_key_event(KeyCode::Esc.into()).unwrap();
 
-        input(&mut app, &['l', 's', 'a', 'a']);
-        app.handle_key_event(KeyCode::Esc.into()).unwrap();
+        test.input("lsaa");
+        test.app.handle_key_event(KeyCode::Esc.into()).unwrap();
 
         for _ in 0..4 {
             eprintln!("undo");
-            input(&mut app, &['u']);
-            let mut buf = Buffer::empty(layout::Rect::new(0, 0, 32, 8));
-            app.render(buf.area, &mut buf);
-            assert_snapshot!(buf_string(&buf));
+            test.input("u");
+            assert_snapshot!(test.render());
         }
 
         for _ in 0..4 {
             eprintln!("redo");
-            input(&mut app, &['U']);
-            let mut buf = Buffer::empty(layout::Rect::new(0, 0, 32, 8));
-            app.render(buf.area, &mut buf);
-            assert_snapshot!(buf_string(&buf));
+            test.input("U");
+            assert_snapshot!(test.render());
         }
     }
 
